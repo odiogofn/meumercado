@@ -339,6 +339,29 @@
       color: #6b7280;
     }
 
+    /* BLOCO LISTAS */
+    .lista-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .lista-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .lista-controls select {
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      min-width: 200px;
+    }
+
     /* MODAL EDIÇÃO */
     .modal-backdrop {
       position: fixed;
@@ -443,10 +466,27 @@
         <h1>Controle de Compras</h1>
         <span>Organize suas compras, acompanhe o orçamento e visualize os gastos em gráficos.</span>
       </div>
-      <button class="btn-outline" id="btnLimparTudo" title="Apagar todos os itens e orçamento">
+      <button class="btn-outline" id="btnLimparTudo" title="Apagar todos os itens e listas">
         🔄 Limpar tudo
       </button>
     </header>
+
+    <!-- LISTAS -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">📂</span> Listas de compras
+      </div>
+      <div class="lista-box">
+        <div class="lista-controls">
+          <label for="listaSelecao" style="font-size:0.85rem;color:#9ca3af;">Lista atual:</label>
+          <select id="listaSelecao"></select>
+          <button class="btn-outline btn-small" id="btnNovaLista">Nova lista</button>
+        </div>
+        <small style="font-size:0.75rem;color:#6b7280;">
+          Escolha uma lista salva ou crie uma nova (cada lista tem seus próprios itens e orçamento).
+        </small>
+      </div>
+    </div>
 
     <!-- CONFIG / ORÇAMENTO -->
     <div class="card" style="margin-bottom: 14px;">
@@ -512,11 +552,13 @@
             <option value="un">Unidade</option>
             <option value="kg">Kg</option>
             <option value="g">Gramas</option>
+            <option value="l">Litros</option>
+            <option value="cx">Caixa</option>
           </select>
         </div>
 
         <div class="field field-preco">
-          <label for="preco">Preço por un/kg (R$)</label>
+          <label for="preco">Preço por un/kg/L/cx (R$)</label>
           <input type="number" id="preco" step="0.01" min="0">
         </div>
 
@@ -537,7 +579,7 @@
               <th>Produto</th>
               <th>Categoria</th>
               <th>Qtd</th>
-              <th class="right">Preço un/kg</th>
+              <th class="right">Preço un/kg/L/cx</th>
               <th class="right">Total item</th>
               <th class="right"></th>
             </tr>
@@ -642,9 +684,11 @@
         <option value="un">Unidade</option>
         <option value="kg">Kg</option>
         <option value="g">Gramas</option>
+        <option value="l">Litros</option>
+        <option value="cx">Caixa</option>
       </select>
 
-      <label class="edit-label">Preço un/kg (R$)</label>
+      <label class="edit-label">Preço un/kg/L/cx (R$)</label>
       <input id="editPreco" type="number" step="0.01" min="0" class="edit-input">
 
       <div class="modal-actions">
@@ -714,10 +758,16 @@
       { nome: 'Desodorante', categoria: 'Higiene' }
     ];
 
-    // ----- ESTADO -----
+    // ----- ESTADO GLOBAL (MULTI-LISTAS) -----
+    const STORAGE_KEY_LISTAS = 'controleCompras_listas_v1';
+
+    let listas = [];        // array de {id, nome, itens, proximoId, usarOrcamento, valorOrcamento}
+    let listaAtualId = null;
+
+    // estado da lista atual (espelho em memória)
     let itens = [];
     let proximoId = 1;
-    const STORAGE_KEY = 'controleCompras_v1';
+
     let itemEditando = null;
 
     // ----- ELEMENTOS -----
@@ -752,6 +802,9 @@
     const inputCategoria = document.getElementById('categoria');
     const datalistProdutos = document.getElementById('listaProdutos');
 
+    const listaSelecao = document.getElementById('listaSelecao');
+    const btnNovaLista = document.getElementById('btnNovaLista');
+
     // Gráficos
     let chartCategorias = null;
     let chartTopProdutos = null;
@@ -769,36 +822,98 @@
         return quantidade.toFixed(0) + ' g';
       } else if (unidade === 'kg') {
         return quantidade.toFixed(3).replace('.', ',') + ' kg';
+      } else if (unidade === 'l') {
+        return quantidade.toFixed(2).replace('.', ',') + ' L';
+      } else if (unidade === 'cx') {
+        return quantidade.toFixed(2).replace('.', ',') + ' cx';
       } else {
         return quantidade.toFixed(2).replace('.', ',') + ' un';
       }
     }
 
-    function salvarEstado() {
-      const data = {
-        itens,
-        proximoId,
-        usarOrcamento: usarOrcamento.checked,
-        valorOrcamento: valorOrcamentoInput.value
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    function gerarIdLista() {
+      return 'lista-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     }
 
-    function carregarEstado() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
+    function getListaAtual() {
+      return listas.find(l => l.id === listaAtualId) || null;
+    }
 
+    function sincronizarListaAtualESalvar() {
+      const lista = getListaAtual();
+      if (!lista) return;
+
+      lista.itens = itens;
+      lista.proximoId = proximoId;
+      lista.usarOrcamento = usarOrcamento.checked;
+      lista.valorOrcamento = valorOrcamentoInput.value;
+
+      localStorage.setItem(STORAGE_KEY_LISTAS, JSON.stringify({
+        listas,
+        listaAtualId
+      }));
+    }
+
+    function carregarListas() {
+      const raw = localStorage.getItem(STORAGE_KEY_LISTAS);
+      if (!raw) {
+        listas = [];
+        listaAtualId = null;
+        criarListaInicialSeNecessario();
+        return;
+      }
       try {
         const data = JSON.parse(raw);
-        itens = data.itens || [];
-        proximoId = data.proximoId || (itens.length + 1);
-        usarOrcamento.checked = !!data.usarOrcamento;
-        valorOrcamentoInput.disabled = !usarOrcamento.checked;
-        if (data.valorOrcamento !== undefined) {
-          valorOrcamentoInput.value = data.valorOrcamento;
+        listas = Array.isArray(data.listas) ? data.listas : [];
+        listaAtualId = data.listaAtualId || null;
+        if (!listas.length) {
+          criarListaInicialSeNecessario();
+        } else if (!getListaAtual()) {
+          // se listaAtualId não existir mais, pega a primeira
+          listaAtualId = listas[0].id;
         }
       } catch (e) {
-        console.error('Erro ao carregar estado:', e);
+        console.error('Erro ao carregar listas:', e);
+        listas = [];
+        listaAtualId = null;
+        criarListaInicialSeNecessario();
+      }
+    }
+
+    function criarListaInicialSeNecessario() {
+      if (listas.length > 0) return;
+      const id = gerarIdLista();
+      const nova = {
+        id,
+        nome: 'Lista padrão',
+        itens: [],
+        proximoId: 1,
+        usarOrcamento: false,
+        valorOrcamento: ''
+      };
+      listas.push(nova);
+      listaAtualId = id;
+      sincronizarListaAtualESalvar();
+    }
+
+    function carregarEstadoDaLista(lista) {
+      itens = lista.itens || [];
+      proximoId = lista.proximoId || (itens.length + 1);
+      usarOrcamento.checked = !!lista.usarOrcamento;
+      valorOrcamentoInput.disabled = !usarOrcamento.checked;
+      valorOrcamentoInput.value = lista.valorOrcamento || '';
+    }
+
+    function atualizarComboListas() {
+      listaSelecao.innerHTML = '';
+      listas.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.nome;
+        listaSelecao.appendChild(opt);
+      });
+      if (listaAtualId && listas.some(l => l.id === listaAtualId)) {
+        listaSelecao.value = listaAtualId;
       }
     }
 
@@ -814,14 +929,10 @@
 
     function sugerirCategoriaParaProduto(nomeProduto) {
       if (!nomeProduto) return;
-
       const nome = nomeProduto.trim().toLowerCase();
       if (!nome) return;
-
-      // procura match exato (case insensitive)
       const encontrado = produtosSugeridos.find(p => p.nome.toLowerCase() === nome);
       if (encontrado) {
-        // só sobrescreve categoria se estiver vazia
         if (!inputCategoria.value.trim()) {
           inputCategoria.value = encontrado.categoria;
         }
@@ -873,7 +984,6 @@
         const tdAcao = document.createElement('td');
         tdAcao.classList.add('right');
 
-        // botão editar
         const btnEditar = document.createElement('button');
         btnEditar.textContent = 'Editar';
         btnEditar.classList.add('btn-small', 'btn-outline');
@@ -881,7 +991,6 @@
         btnEditar.addEventListener('click', () => abrirEditor(item.id));
         tdAcao.appendChild(btnEditar);
 
-        // botão excluir
         const btnRemover = document.createElement('button');
         btnRemover.textContent = 'Excluir';
         btnRemover.classList.add('btn-small', 'btn-danger');
@@ -913,11 +1022,9 @@
       totalCompraSpan.textContent = formatarMoeda(total);
       summaryItensSpan.textContent = `${itens.length} item${itens.length === 1 ? '' : 's'}`;
 
-      // Ticket médio
       const ticketMedio = itens.length > 0 ? total / itens.length : 0;
       ticketMedioSpan.textContent = formatarMoeda(ticketMedio);
 
-      // Maior item
       if (itens.length > 0) {
         const maior = itens.reduce((acc, item) => item.totalItem > acc.totalItem ? item : acc, itens[0]);
         maiorItemSpan.textContent = formatarMoeda(maior.totalItem);
@@ -927,13 +1034,11 @@
         maiorItemNomeSpan.textContent = '–';
       }
 
-      // Categorias distintas
       const categoriasSet = new Set(
         itens.map(i => (i.categoria && i.categoria.trim()) ? i.categoria.trim() : 'Sem categoria')
       );
       qtdCategoriasSpan.textContent = itens.length === 0 ? 0 : categoriasSet.size;
 
-      // Orçamento
       if (usarOrcamento.checked && valorOrcamentoInput.value !== '') {
         const orcamento = parseFloat(valorOrcamentoInput.value.replace(',', '.')) || 0;
         if (orcamento > 0) {
@@ -963,11 +1068,10 @@
       }
 
       atualizarGraficos();
-      salvarEstado();
+      sincronizarListaAtualESalvar();
     }
 
     function atualizarGraficos() {
-      // --- Gráfico por categoria (pizza / doughnut) ---
       const gastosPorCategoria = {};
       itens.forEach(item => {
         const cat = (item.categoria && item.categoria.trim()) ? item.categoria.trim() : 'Sem categoria';
@@ -1011,7 +1115,6 @@
         }
       });
 
-      // --- Gráfico Top produtos (barra) ---
       const itensOrdenados = [...itens].sort((a, b) => b.totalItem - a.totalItem).slice(0, 5);
       const labelsTop = itensOrdenados.map(i => i.produto);
       const valoresTop = itensOrdenados.map(i => i.totalItem);
@@ -1117,16 +1220,22 @@
     }
 
     function limparTudo() {
-      if (!confirm('Deseja realmente apagar todos os itens e o orçamento?')) return;
+      if (!confirm('Deseja realmente apagar TODAS as listas e itens salvos?')) return;
+      listas = [];
+      listaAtualId = null;
       itens = [];
       proximoId = 1;
       usarOrcamento.checked = false;
       valorOrcamentoInput.value = '';
       valorOrcamentoInput.disabled = true;
+      localStorage.removeItem(STORAGE_KEY_LISTAS);
 
+      criarListaInicialSeNecessario();
+      atualizarComboListas();
+      const lista = getListaAtual();
+      carregarEstadoDaLista(lista);
       renderizarTabela();
       atualizarResumo();
-      salvarEstado();
     }
 
     // ----- EDIÇÃO -----
@@ -1182,14 +1291,52 @@
       fecharEditor();
     });
 
-    // Fechar modal clicando fora
     modalEdicao.addEventListener('click', (e) => {
       if (e.target === modalEdicao) {
         fecharEditor();
       }
     });
 
-    // ----- EVENTOS -----
+    // ----- LISTAS EVENTOS -----
+    btnNovaLista.addEventListener('click', () => {
+      const nome = prompt('Nome da nova lista:', 'Nova lista');
+      if (!nome) return;
+
+      // salva estado atual antes de trocar
+      sincronizarListaAtualESalvar();
+
+      const id = gerarIdLista();
+      const nova = {
+        id,
+        nome: nome.trim(),
+        itens: [],
+        proximoId: 1,
+        usarOrcamento: false,
+        valorOrcamento: ''
+      };
+      listas.push(nova);
+      listaAtualId = id;
+      atualizarComboListas();
+
+      carregarEstadoDaLista(nova);
+      renderizarTabela();
+      atualizarResumo();
+      sincronizarListaAtualESalvar();
+    });
+
+    listaSelecao.addEventListener('change', () => {
+      // salva lista atual
+      sincronizarListaAtualESalvar();
+
+      listaAtualId = listaSelecao.value;
+      const lista = getListaAtual();
+      if (!lista) return;
+      carregarEstadoDaLista(lista);
+      renderizarTabela();
+      atualizarResumo();
+    });
+
+    // ----- EVENTOS GERAIS -----
     usarOrcamento.addEventListener('change', () => {
       valorOrcamentoInput.disabled = !usarOrcamento.checked;
       if (!usarOrcamento.checked) {
@@ -1212,7 +1359,6 @@
       limparTudo();
     });
 
-    // Enter no campo preço também adiciona
     document.getElementById('preco').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -1222,7 +1368,12 @@
 
     // ----- INICIALIZAÇÃO -----
     inicializarListaProdutos();
-    carregarEstado();
+    carregarListas();
+    atualizarComboListas();
+    const listaInicial = getListaAtual();
+    if (listaInicial) {
+      carregarEstadoDaLista(listaInicial);
+    }
     renderizarTabela();
     atualizarResumo();
   </script>
