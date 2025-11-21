@@ -2,9 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Controle de Compras - Meses e Listas</title>
+  <title>Controle de Compras - Meses, Listas e Carteiras</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
     * {
       box-sizing: border-box;
@@ -86,6 +89,15 @@
       font-size: 0.9rem;
     }
 
+    .row-flex input[type="text"] {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.9rem;
+    }
+
     .orcamento-box {
       display: flex;
       flex-wrap: wrap;
@@ -119,7 +131,7 @@
 
     .form-grid {
       display: grid;
-      grid-template-columns: 2fr 1.4fr 1fr 1fr 1.2fr auto;
+      grid-template-columns: 2fr 1.4fr 1.4fr 1fr 1fr 1.2fr auto;
       gap: 10px;
       margin-top: 12px;
     }
@@ -405,18 +417,36 @@
       gap: 10px;
     }
 
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #111827;
+      font-size: 0.75rem;
+      color: #e5e7eb;
+      border: 1px solid #1f2937;
+    }
+
     @media (max-width: 900px) {
       .form-grid {
         grid-template-columns: 1fr 1fr;
         grid-template-areas:
           "produto produto"
           "categoria categoria"
+          "carteira carteira"
           "qtde unidade"
           "preco preco"
           "btn btn";
       }
       .field-produto { grid-area: produto; }
       .field-categoria { grid-area: categoria; }
+      .field-carteira { grid-area: carteira; }
       .field-qtde { grid-area: qtde; }
       .field-unidade { grid-area: unidade; }
       .field-preco { grid-area: preco; }
@@ -448,7 +478,7 @@
     <header>
       <div>
         <h1>Controle de Compras</h1>
-        <span>Meses ➝ Listas ➝ Itens, com gráficos por lista e por mês.</span>
+        <span>Meses ➝ Listas ➝ Itens, com carteiras, gráficos por mês e por forma de pagamento.</span>
       </div>
       <button class="btn-outline" id="btnLimparLista" title="Limpar apenas a lista atual">
         🧹 Limpar lista atual
@@ -476,6 +506,25 @@
       <small style="font-size:0.75rem;color:#6b7280;">
         Exemplo: Mês 11/2025 → listas "Compra grande", "Reposição", "Churrasco".
       </small>
+    </div>
+
+    <!-- CARTEIRAS -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">👛</span> Carteiras / formas de pagamento
+      </div>
+
+      <div class="row-flex">
+        <label for="novaCarteiraNome">Nova carteira:</label>
+        <input type="text" id="novaCarteiraNome" placeholder="Ex: Pix, Crédito Nubank, Débito Caixa, VR, Dinheiro">
+        <button class="btn-outline" id="btnAdicionarCarteira">➕ Adicionar carteira</button>
+      </div>
+
+      <small style="font-size:0.75rem;color:#6b7280;">
+        As carteiras ficam disponíveis para seleção em cada item da lista.
+      </small>
+
+      <div id="listaCarteirasResumo" class="chips"></div>
     </div>
 
     <!-- CONFIG / ORÇAMENTO DA LISTA ATUAL -->
@@ -530,6 +579,11 @@
           </datalist>
         </div>
 
+        <div class="field field-carteira">
+          <label for="carteiraItem">Carteira</label>
+          <select id="carteiraItem"></select>
+        </div>
+
         <div class="field field-qtde">
           <label for="quantidade">Quantidade</label>
           <input type="number" id="quantidade" step="0.01" min="0">
@@ -567,6 +621,7 @@
               <th>#</th>
               <th>Produto</th>
               <th>Categoria</th>
+              <th>Carteira</th>
               <th>Qtd</th>
               <th class="right">Preço un/kg/L</th>
               <th class="right">Total item</th>
@@ -579,7 +634,7 @@
 
       <div class="table-actions">
         <span id="infoQuantidadeItens">Nenhum item adicionado ainda.</span>
-        <span style="font-size:0.75rem;">Dica: separe produtos em listas dentro do mesmo mês (ex: compras extras).</span>
+        <span style="font-size:0.75rem;">Dica: use carteiras diferentes para ver o impacto de Pix, crédito, VR, etc.</span>
       </div>
     </div>
 
@@ -650,7 +705,7 @@
     </div>
 
     <!-- VISÃO GERAL POR MÊS / TOTAL -->
-    <div class="card">
+    <div class="card" style="margin-bottom:14px;">
       <div class="section-title">
         <span class="icon">🌎</span> Visão geral por mês (todas as listas)
       </div>
@@ -689,6 +744,38 @@
         <canvas id="chartTotaisMeses" height="240"></canvas>
       </div>
     </div>
+
+    <!-- VISÃO POR CARTEIRA -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="section-title">
+        <span class="icon">💳</span> Visão por carteira (todas as listas, todos os meses)
+      </div>
+      <div class="chart-card">
+        <h3>Totais por carteira</h3>
+        <div class="chart-helper">
+          Quanto cada carteira (Pix, crédito, débito, VR etc.) está sendo usada no período completo.
+        </div>
+        <canvas id="chartCarteiras" height="240"></canvas>
+      </div>
+    </div>
+
+    <!-- BACKUP -->
+    <div class="card">
+      <div class="section-title">
+        <span class="icon">💾</span> Backup de dados
+      </div>
+      <p style="font-size:0.8rem;color:#9ca3af;margin-top:0;margin-bottom:8px;">
+        Exporte um arquivo de backup (.json) para usar seus dados em outra máquina ou navegador.
+      </p>
+      <div class="row-flex">
+        <button class="btn-outline" id="btnExportarBackup">⬇️ Exportar backup</button>
+        <button class="btn-outline" id="btnImportarBackup">⬆️ Importar backup</button>
+        <input type="file" id="inputImportarBackup" accept=".json,application/json" style="display:none;">
+      </div>
+      <small style="font-size:0.75rem;color:#6b7280;">
+        Depois de importar, os dados são recarregados com o conteúdo do backup (meses, listas, carteiras).
+      </small>
+    </div>
   </div>
 
   <!-- MODAL DE EDIÇÃO -->
@@ -701,6 +788,9 @@
 
       <label class="edit-label">Categoria</label>
       <input id="editCategoria" class="edit-input">
+
+      <label class="edit-label">Carteira</label>
+      <select id="editCarteira" class="edit-input"></select>
 
       <label class="edit-label">Quantidade</label>
       <input id="editQuantidade" type="number" step="0.01" min="0" class="edit-input">
@@ -780,12 +870,14 @@
       { nome: 'Desodorante', categoria: 'Higiene' }
     ];
 
-    // ----- ESTADO: MESES E LISTAS -----
+    // ----- ESTADO: MESES, LISTAS, CARTEIRAS -----
     const STORAGE_KEY = 'controleComprasMeses_v1';
     let meses = [];
     let mesAtivoId = null;
     let listaAtivaId = null;
     let itemEditando = null;
+
+    let carteiras = []; // {id, nome}
 
     // ----- ELEMENTOS -----
     const selectMes = document.getElementById('selectMes');
@@ -821,6 +913,7 @@
     const modalEdicao = document.getElementById('modalEdicao');
     const editProduto = document.getElementById('editProduto');
     const editCategoria = document.getElementById('editCategoria');
+    const editCarteira = document.getElementById('editCarteira');
     const editQuantidade = document.getElementById('editQuantidade');
     const editUnidade = document.getElementById('editUnidade');
     const editPreco = document.getElementById('editPreco');
@@ -830,11 +923,21 @@
     const inputProduto = document.getElementById('produto');
     const inputCategoria = document.getElementById('categoria');
     const datalistProdutos = document.getElementById('listaProdutos');
+    const selectCarteiraItem = document.getElementById('carteiraItem');
+
+    const inputNovaCarteiraNome = document.getElementById('novaCarteiraNome');
+    const btnAdicionarCarteira = document.getElementById('btnAdicionarCarteira');
+    const listaCarteirasResumo = document.getElementById('listaCarteirasResumo');
+
+    const btnExportarBackup = document.getElementById('btnExportarBackup');
+    const btnImportarBackup = document.getElementById('btnImportarBackup');
+    const inputImportarBackup = document.getElementById('inputImportarBackup');
 
     // Gráficos
     let chartCategorias = null;
     let chartTopProdutos = null;
     let chartTotaisMeses = null;
+    let chartCarteiras = null;
 
     // ----- FUNÇÕES AUXILIARES -----
     function getMesAtivo() {
@@ -876,7 +979,6 @@
     }
 
     function labelMes(idMes) {
-      // id no formato YYYY-MM
       const [ano, mes] = idMes.split('-');
       return `${mes}/${ano}`;
     }
@@ -885,16 +987,27 @@
       const data = {
         meses,
         mesAtivoId,
-        listaAtivaId
+        listaAtivaId,
+        carteiras
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function inicializarCarteirasPadrao() {
+      return [
+        { id: 'c1', nome: 'Dinheiro' },
+        { id: 'c2', nome: 'Pix' },
+        { id: 'c3', nome: 'Crédito' },
+        { id: 'c4', nome: 'Débito' },
+        { id: 'c5', nome: 'VR' },
+        { id: 'c6', nome: 'VA' }
+      ];
     }
 
     function carregarEstado() {
       const raw = localStorage.getItem(STORAGE_KEY);
 
       if (!raw) {
-        // cria mês atual com lista padrão
         const id = idMesAtual();
         const mesPadrao = {
           id,
@@ -911,6 +1024,7 @@
         meses = [mesPadrao];
         mesAtivoId = id;
         listaAtivaId = mesPadrao.listas[0].id;
+        carteiras = inicializarCarteirasPadrao();
         salvarEstado();
         return;
       }
@@ -943,7 +1057,12 @@
           meses = [mesPadrao];
           mesAtivoId = id;
           listaAtivaId = mesPadrao.listas[0].id;
-          salvarEstado();
+        }
+
+        if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
+          carteiras = data.carteiras;
+        } else {
+          carteiras = inicializarCarteirasPadrao();
         }
       } catch (e) {
         console.error('Erro ao carregar estado:', e);
@@ -963,6 +1082,7 @@
         meses = [mesPadrao];
         mesAtivoId = id;
         listaAtivaId = mesPadrao.listas[0].id;
+        carteiras = inicializarCarteirasPadrao();
         salvarEstado();
       }
     }
@@ -993,6 +1113,84 @@
     inputProduto.addEventListener('blur', () => {
       sugerirCategoriaParaProduto(inputProduto.value);
     });
+
+    // ----- CARTEIRAS: UI -----
+    function atualizarSelectCarteiras() {
+      selectCarteiraItem.innerHTML = '';
+      editCarteira.innerHTML = '';
+
+      if (carteiras.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Sem carteiras';
+        selectCarteiraItem.appendChild(opt);
+        const opt2 = opt.cloneNode(true);
+        editCarteira.appendChild(opt2);
+        return;
+      }
+
+      carteiras.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nome;
+        selectCarteiraItem.appendChild(opt);
+
+        const opt2 = document.createElement('option');
+        opt2.value = c.id;
+        opt2.textContent = c.nome;
+        editCarteira.appendChild(opt2);
+      });
+    }
+
+    function atualizarResumoCarteirasChips() {
+      listaCarteirasResumo.innerHTML = '';
+      if (carteiras.length === 0) {
+        const span = document.createElement('span');
+        span.textContent = 'Nenhuma carteira cadastrada.';
+        span.style.fontSize = '0.8rem';
+        span.style.color = '#6b7280';
+        listaCarteirasResumo.appendChild(span);
+        return;
+      }
+
+      carteiras.forEach(c => {
+        const chip = document.createElement('div');
+        chip.classList.add('chip');
+        chip.textContent = c.nome;
+        listaCarteirasResumo.appendChild(chip);
+      });
+    }
+
+    function adicionarCarteira() {
+      const nome = inputNovaCarteiraNome.value.trim();
+      if (!nome) {
+        alert('Informe o nome da carteira (ex: Pix, Crédito Nubank, VR).');
+        return;
+      }
+      const id = 'c' + Date.now();
+      carteiras.push({ id, nome });
+      inputNovaCarteiraNome.value = '';
+      atualizarSelectCarteiras();
+      atualizarResumoCarteirasChips();
+      salvarEstado();
+    }
+
+    btnAdicionarCarteira.addEventListener('click', (e) => {
+      e.preventDefault();
+      adicionarCarteira();
+    });
+
+    inputNovaCarteiraNome.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        adicionarCarteira();
+      }
+    });
+
+    function nomeCarteiraPorId(id) {
+      const c = carteiras.find(x => x.id === id);
+      return c ? c.nome : 'Sem carteira';
+    }
 
     // ----- UI: MESES E LISTAS -----
     function atualizarSelectMeses() {
@@ -1077,6 +1275,13 @@
         spanTag.textContent = categoriaLabel;
         tdCategoria.appendChild(spanTag);
 
+        const tdCarteira = document.createElement('td');
+        const carteiraNome = item.carteiraId ? nomeCarteiraPorId(item.carteiraId) : 'Sem carteira';
+        const spanCarteira = document.createElement('span');
+        spanCarteira.classList.add('tag');
+        spanCarteira.textContent = carteiraNome;
+        tdCarteira.appendChild(spanCarteira);
+
         const tdQuantidade = document.createElement('td');
         tdQuantidade.textContent = formatarQuantidade(item.quantidade, item.unidade);
 
@@ -1107,6 +1312,7 @@
         tr.appendChild(tdSeq);
         tr.appendChild(tdProduto);
         tr.appendChild(tdCategoria);
+        tr.appendChild(tdCarteira);
         tr.appendChild(tdQuantidade);
         tr.appendChild(tdPreco);
         tr.appendChild(tdTotalItem);
@@ -1266,13 +1472,14 @@
       });
     }
 
-    // ----- GRÁFICO GERAL POR MÊS -----
+    // ----- GRÁFICO GERAL POR MÊS E POR CARTEIRA -----
     function atualizarGraficosGerais() {
-      // cálculo de totais por mês
-      const labels = [];
-      const valores = [];
+      const labelsMes = [];
+      const valoresMes = [];
       let totalGeral = 0;
       let qtdListasTotais = 0;
+
+      const totaisCarteiras = {}; // idCarteira -> valor
 
       meses.forEach(m => {
         let totalMes = 0;
@@ -1280,10 +1487,13 @@
           qtdListasTotais++;
           (l.itens || []).forEach(item => {
             totalMes += item.totalItem;
+
+            const idCarteira = item.carteiraId || 'sem';
+            totaisCarteiras[idCarteira] = (totaisCarteiras[idCarteira] || 0) + item.totalItem;
           });
         });
-        labels.push(m.nome || labelMes(m.id));
-        valores.push(totalMes);
+        labelsMes.push(m.nome || labelMes(m.id));
+        valoresMes.push(totalMes);
         totalGeral += totalMes;
       });
 
@@ -1293,27 +1503,71 @@
 
       if (meses.length > 0) {
         let idxTop = 0;
-        let maxVal = valores[0] || 0;
-        for (let i = 1; i < valores.length; i++) {
-          if (valores[i] > maxVal) {
-            maxVal = valores[i];
+        let maxVal = valoresMes[0] || 0;
+        for (let i = 1; i < valoresMes.length; i++) {
+          if (valoresMes[i] > maxVal) {
+            maxVal = valoresMes[i];
             idxTop = i;
           }
         }
-        mesTopLabelSpan.textContent = labels[idxTop];
+        mesTopLabelSpan.textContent = labelsMes[idxTop];
         mesTopValorSpan.textContent = formatarMoeda(maxVal);
       } else {
         mesTopLabelSpan.textContent = '–';
         mesTopValorSpan.textContent = 'R$ 0,00';
       }
 
-      const ctx = document.getElementById('chartTotaisMeses').getContext('2d');
+      // Gráfico por mês
+      const ctxMes = document.getElementById('chartTotaisMeses').getContext('2d');
       if (chartTotaisMeses) chartTotaisMeses.destroy();
-      chartTotaisMeses = new Chart(ctx, {
+      chartTotaisMeses = new Chart(ctxMes, {
         type: 'bar',
         data: {
-          labels,
-          datasets: [{ data: valores }]
+          labels: labelsMes,
+          datasets: [{ data: valoresMes }]
+        },
+        options: {
+          scales: {
+            x: { ticks: { color: '#e5e7eb', font: { size: 11 } } },
+            y: {
+              ticks: {
+                color: '#e5e7eb',
+                font: { size: 11 },
+                callback: (value) => formatarMoeda(value)
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => formatarMoeda(context.raw || 0)
+              }
+            }
+          }
+        }
+      });
+
+      // Gráfico por carteira
+      const labelsCarteiras = [];
+      const valoresCarteiras = [];
+
+      Object.keys(totaisCarteiras).forEach(id => {
+        if (id === 'sem') {
+          labelsCarteiras.push('Sem carteira');
+        } else {
+          labelsCarteiras.push(nomeCarteiraPorId(id));
+        }
+        valoresCarteiras.push(totaisCarteiras[id]);
+      });
+
+      const ctxCarteiras = document.getElementById('chartCarteiras').getContext('2d');
+      if (chartCarteiras) chartCarteiras.destroy();
+      chartCarteiras = new Chart(ctxCarteiras, {
+        type: 'bar',
+        data: {
+          labels: labelsCarteiras,
+          datasets: [{ data: valoresCarteiras }]
         },
         options: {
           scales: {
@@ -1345,6 +1599,7 @@
 
       const produto = inputProduto.value.trim();
       const categoria = inputCategoria.value.trim();
+      const carteiraId = selectCarteiraItem.value || null;
       const quantidadeInput = document.getElementById('quantidade').value;
       const precoInput = document.getElementById('preco').value;
       const unidade = document.getElementById('unidade').value;
@@ -1379,7 +1634,8 @@
         quantidade,
         unidade,
         preco,
-        totalItem
+        totalItem,
+        carteiraId
       };
 
       lista.itens.push(item);
@@ -1434,7 +1690,25 @@
       editUnidade.value = item.unidade;
       editPreco.value = item.preco;
 
+      // set carteira
+      editarPreencherCarteirasSelect();
+      editCarteira.value = item.carteiraId || '';
       modalEdicao.style.display = 'flex';
+    }
+
+    function editarPreencherCarteirasSelect() {
+      editCarteira.innerHTML = '';
+      const optNenhuma = document.createElement('option');
+      optNenhuma.value = '';
+      optNenhuma.textContent = 'Sem carteira';
+      editCarteira.appendChild(optNenhuma);
+
+      carteiras.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nome;
+        editCarteira.appendChild(opt);
+      });
     }
 
     function fecharEditor() {
@@ -1452,6 +1726,7 @@
       const qtd = parseFloat(String(editQuantidade.value).replace(',', '.'));
       const und = editUnidade.value;
       const preco = parseFloat(String(editPreco.value).replace(',', '.'));
+      const carteiraId = editCarteira.value || null;
 
       if (!prod || isNaN(qtd) || qtd <= 0 || isNaN(preco) || preco <= 0) {
         alert('Preencha os campos corretamente.');
@@ -1468,6 +1743,7 @@
       itemEditando.unidade = und;
       itemEditando.preco = preco;
       itemEditando.totalItem = totalItem;
+      itemEditando.carteiraId = carteiraId;
 
       renderizarTabela();
       atualizarResumo();
@@ -1599,11 +1875,84 @@
       salvarEstado();
     });
 
+    // ----- BACKUP: EXPORTAR / IMPORTAR -----
+    function exportarBackup() {
+      salvarEstado();
+      const raw = localStorage.getItem(STORAGE_KEY) ||
+        JSON.stringify({ meses, mesAtivoId, listaAtivaId, carteiras });
+      const blob = new Blob([raw], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const hoje = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `compras-backup-${hoje}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importarBackup(arquivo) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data || !Array.isArray(data.meses)) {
+            alert('Arquivo de backup inválido.');
+            return;
+          }
+          meses = data.meses;
+          mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
+          const mes = getMesAtivo();
+          if (mes && mes.listas.length > 0) {
+            listaAtivaId = data.listaAtivaId || mes.listas[0].id;
+          } else {
+            listaAtivaId = null;
+          }
+
+          if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
+            carteiras = data.carteiras;
+          } else {
+            carteiras = inicializarCarteirasPadrao();
+          }
+
+          salvarEstado();
+          atualizarSelectMeses();
+          atualizarSelectListas();
+          atualizarSelectCarteiras();
+          atualizarResumoCarteirasChips();
+          carregarListaNaUI();
+          alert('Backup importado com sucesso!');
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao ler o arquivo de backup.');
+        }
+      };
+      reader.readAsText(arquivo, 'utf-8');
+    }
+
+    btnExportarBackup.addEventListener('click', () => {
+      exportarBackup();
+    });
+
+    btnImportarBackup.addEventListener('click', () => {
+      inputImportarBackup.click();
+    });
+
+    inputImportarBackup.addEventListener('change', () => {
+      const arquivo = inputImportarBackup.files[0];
+      if (!arquivo) return;
+      importarBackup(arquivo);
+      inputImportarBackup.value = '';
+    });
+
     // ----- INICIALIZAÇÃO -----
     inicializarListaProdutos();
     carregarEstado();
     atualizarSelectMeses();
     atualizarSelectListas();
+    atualizarSelectCarteiras();
+    atualizarResumoCarteirasChips();
     carregarListaNaUI();
   </script>
 </body>
