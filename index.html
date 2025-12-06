@@ -2,13 +2,11 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Controle de Compras Profissional</title>
+  <title>Controle de Compras - Meses, Listas e Carteiras</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Chart.js -->
+  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Supabase opcional (só será usado se CONFIG.useSupabase = true) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     * {
@@ -23,7 +21,7 @@
       color: #e5e7eb;
     }
 
-    .app-shell {
+    .app {
       max-width: 1200px;
       margin: 0 auto;
     }
@@ -53,7 +51,6 @@
       padding: 16px 18px;
       box-shadow: 0 18px 40px rgba(0,0,0,0.45);
       border: 1px solid #1f2937;
-      margin-bottom: 14px;
     }
 
     .section-title {
@@ -83,10 +80,7 @@
       color: #9ca3af;
     }
 
-    .row-flex select,
-    .row-flex input[type="text"],
-    .row-flex input[type="email"],
-    .row-flex input[type="password"] {
+    .row-flex select {
       padding: 6px 10px;
       border-radius: 999px;
       border: 1px solid #374151;
@@ -95,11 +89,13 @@
       font-size: 0.9rem;
     }
 
-    .row-flex input:focus,
-    .row-flex select:focus {
-      outline: none;
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 1px rgba(56,189,248,0.35);
+    .row-flex input[type="text"] {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 0.9rem;
     }
 
     .orcamento-box {
@@ -125,6 +121,12 @@
       border: 1px solid #374151;
       background: #020617;
       color: #e5e7eb;
+    }
+
+    .orcamento-box input:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.35);
     }
 
     .form-grid {
@@ -356,22 +358,6 @@
       color: #6b7280;
     }
 
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 6px;
-    }
-
-    .chip {
-      padding: 3px 10px;
-      border-radius: 999px;
-      background: #111827;
-      font-size: 0.75rem;
-      color: #e5e7eb;
-      border: 1px solid #1f2937;
-    }
-
     /* MODAL EDIÇÃO */
     .modal-backdrop {
       position: fixed;
@@ -431,16 +417,20 @@
       gap: 10px;
     }
 
-    /* AUTH CARD */
-    #authContainer {
-      max-width: 420px;
-      margin: 0 auto 16px auto;
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
     }
 
-    #authStatus {
-      font-size: 0.8rem;
-      color: #9ca3af;
-      min-height: 16px;
+    .chip {
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: #111827;
+      font-size: 0.75rem;
+      color: #e5e7eb;
+      border: 1px solid #1f2937;
     }
 
     @media (max-width: 900px) {
@@ -484,319 +474,307 @@
   </style>
 </head>
 <body>
-  <div class="app-shell">
-
-    <!-- AUTH / LOGIN -->
-    <div id="authContainer" class="card">
-      <div class="section-title">
-        <span class="icon">🔐</span> Acesso ao sistema
+  <div class="app">
+    <header>
+      <div>
+        <h1>Controle de Compras</h1>
+        <span>Meses ➝ Listas ➝ Itens, com carteiras, gráficos por mês e por forma de pagamento.</span>
       </div>
-      <div class="row-flex" style="flex-direction:column;align-items:stretch;gap:8px;margin-bottom:6px;">
-        <input id="authEmail" type="email" placeholder="E-mail (para login online com Supabase)">
-        <input id="authSenha" type="password" placeholder="Senha">
-        <div style="display:flex;gap:8px;">
-          <button id="btnCadastrar" class="btn-primary" style="flex:1;">Criar conta</button>
-          <button id="btnEntrar" class="btn-outline" style="flex:1;">Entrar</button>
+      <button class="btn-outline" id="btnLimparLista" title="Limpar apenas a lista atual">
+        🧹 Limpar lista atual
+      </button>
+    </header>
+
+    <!-- MES / LISTAS -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">📆</span> Meses e listas de compras
+      </div>
+
+      <div class="row-flex">
+        <label for="selectMes">Mês de referência:</label>
+        <select id="selectMes"></select>
+        <button class="btn-outline" id="btnNovoMes">➕ Novo mês</button>
+      </div>
+
+      <div class="row-flex">
+        <label for="selectLista">Lista dentro do mês:</label>
+        <select id="selectLista"></select>
+        <button class="btn-outline" id="btnNovaListaMes">➕ Nova lista neste mês</button>
+      </div>
+
+      <small style="font-size:0.75rem;color:#6b7280;">
+        Exemplo: Mês 11/2025 → listas "Compra grande", "Reposição", "Churrasco".
+      </small>
+    </div>
+
+    <!-- CARTEIRAS -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">👛</span> Carteiras / formas de pagamento
+      </div>
+
+      <div class="row-flex">
+        <label for="novaCarteiraNome">Nova carteira:</label>
+        <input type="text" id="novaCarteiraNome" placeholder="Ex: Pix, Crédito Nubank, Débito Caixa, VR, Dinheiro">
+        <button class="btn-outline" id="btnAdicionarCarteira">➕ Adicionar carteira</button>
+      </div>
+
+      <small style="font-size:0.75rem;color:#6b7280;">
+        As carteiras ficam disponíveis para seleção em cada item da lista.
+      </small>
+
+      <div id="listaCarteirasResumo" class="chips"></div>
+    </div>
+
+    <!-- CONFIG / ORÇAMENTO DA LISTA ATUAL -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">💰</span> Orçamento da lista atual
+      </div>
+      <div class="orcamento-box">
+        <label>
+          <input type="checkbox" id="usarOrcamento">
+          Ativar controle de orçamento
+        </label>
+        <input
+          type="number"
+          id="valorOrcamento"
+          placeholder="Valor disponível (ex: 300,00)"
+          step="0.01"
+          min="0"
+          disabled
+        >
+      </div>
+      <small style="font-size:0.75rem;color:#6b7280;">
+        Cada lista (dentro do mês) pode ter seu próprio orçamento, salvo localmente.
+      </small>
+    </div>
+
+    <!-- FORM / ITENS DA LISTA ATUAL -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">🛒</span> Itens da lista atual
+      </div>
+
+      <div class="form-grid">
+        <div class="field field-produto">
+          <label for="produto">Produto</label>
+          <input type="text" id="produto" list="listaProdutos" placeholder="Ex: Arroz, Carne, Sabão em pó">
+          <datalist id="listaProdutos"></datalist>
         </div>
-        <button id="btnSair" class="btn-outline" style="margin-top:4px;display:none;">Sair</button>
-        <small id="authStatus"></small>
-        <small style="font-size:0.75rem;color:#6b7280;">
-          <b>Modo atual:</b> se o Supabase estiver desligado na configuração, o sistema usa apenas o navegador (localStorage).
-        </small>
+
+        <div class="field field-categoria">
+          <label for="categoria">Categoria</label>
+          <input list="listaCategorias" id="categoria" placeholder="Ex: Hortifruti, Carne, Limpeza">
+          <datalist id="listaCategorias">
+            <option value="Hortifruti"></option>
+            <option value="Carnes"></option>
+            <option value="Padaria"></option>
+            <option value="Bebidas"></option>
+            <option value="Limpeza"></option>
+            <option value="Higiene"></option>
+            <option value="Mercearia"></option>
+            <option value="Frios"></option>
+          </datalist>
+        </div>
+
+        <div class="field field-carteira">
+          <label for="carteiraItem">Carteira</label>
+          <select id="carteiraItem"></select>
+        </div>
+
+        <div class="field field-qtde">
+          <label for="quantidade">Quantidade</label>
+          <input type="number" id="quantidade" step="0.01" min="0">
+        </div>
+
+        <div class="field field-unidade">
+          <label for="unidade">Unidade</label>
+          <select id="unidade">
+            <option value="un">Unidade</option>
+            <option value="kg">Kg</option>
+            <option value="g">Gramas</option>
+            <option value="L">Litros</option>
+            <option value="cx">Caixa</option>
+          </select>
+        </div>
+
+        <div class="field field-preco">
+          <label for="preco">Preço por un/kg/L (R$)</label>
+          <input type="number" id="preco" step="0.01" min="0">
+        </div>
+
+        <div class="field field-btn">
+          <label>&nbsp;</label>
+          <button class="btn-primary" id="btnAdicionar">
+            ➕ Adicionar item
+          </button>
+        </div>
+      </div>
+
+      <!-- TABELA -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Produto</th>
+              <th>Categoria</th>
+              <th>Carteira</th>
+              <th>Qtd</th>
+              <th class="right">Preço un/kg/L</th>
+              <th class="right">Total item</th>
+              <th class="right"></th>
+            </tr>
+          </thead>
+          <tbody id="tabelaItensBody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-actions">
+        <span id="infoQuantidadeItens">Nenhum item adicionado ainda.</span>
+        <span style="font-size:0.75rem;">Dica: use carteiras diferentes para ver o impacto de Pix, crédito, VR, etc.</span>
       </div>
     </div>
 
-    <!-- APLICATIVO PRINCIPAL -->
-    <div class="app" id="appContainer" style="display:none;">
-      <header>
-        <div>
-          <h1>Controle de Compras</h1>
-          <span>Meses ➝ Listas ➝ Itens, com carteiras, gráficos e backup.</span>
-        </div>
-        <button class="btn-outline" id="btnLimparLista" title="Limpar apenas a lista atual">
-          🧹 Limpar lista atual
-        </button>
-      </header>
-
-      <!-- MES / LISTAS -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">📆</span> Meses e listas de compras
-        </div>
-
-        <div class="row-flex">
-          <label for="selectMes">Mês de referência:</label>
-          <select id="selectMes"></select>
-          <button class="btn-outline" id="btnNovoMes">➕ Novo mês</button>
-        </div>
-
-        <div class="row-flex">
-          <label for="selectLista">Lista dentro do mês:</label>
-          <select id="selectLista"></select>
-          <button class="btn-outline" id="btnNovaListaMes">➕ Nova lista neste mês</button>
-        </div>
-
-        <small style="font-size:0.75rem;color:#6b7280;">
-          Exemplo: Mês 11/2025 → listas "Compra grande", "Reposição", "Churrasco".
-        </small>
+    <!-- RESUMO DA LISTA ATUAL -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">📊</span> Resumo da lista atual
       </div>
 
-      <!-- CARTEIRAS -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">👛</span> Carteiras / formas de pagamento
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Total da lista</div>
+          <div class="summary-value" id="totalCompra">R$ 0,00</div>
+          <div class="summary-extra" id="summaryItens">0 itens</div>
         </div>
 
-        <div class="row-flex">
-          <label for="novaCarteiraNome">Nova carteira:</label>
-          <input type="text" id="novaCarteiraNome" placeholder="Ex: Pix, Crédito Nubank, Débito Caixa, VR, Dinheiro">
-          <button class="btn-outline" id="btnAdicionarCarteira">➕ Adicionar carteira</button>
+        <div class="summary-card">
+          <div class="summary-label">Ticket médio por item</div>
+          <div class="summary-value" id="ticketMedio">R$ 0,00</div>
+          <div class="summary-extra">Total ÷ nº de itens</div>
         </div>
 
-        <small style="font-size:0.75rem;color:#6b7280;">
-          As carteiras ficam disponíveis para seleção em cada item da lista.
-        </small>
-
-        <div id="listaCarteirasResumo" class="chips"></div>
-      </div>
-
-      <!-- ORÇAMENTO -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">💰</span> Orçamento da lista atual
-        </div>
-        <div class="orcamento-box">
-          <label>
-            <input type="checkbox" id="usarOrcamento">
-            Ativar controle de orçamento
-          </label>
-          <input
-            type="number"
-            id="valorOrcamento"
-            placeholder="Valor disponível (ex: 300,00)"
-            step="0.01"
-            min="0"
-            disabled
-          >
-        </div>
-        <small style="font-size:0.75rem;color:#6b7280;">
-          Cada lista (dentro do mês) pode ter seu próprio orçamento, salvo localmente ou no banco.
-        </small>
-      </div>
-
-      <!-- ITENS DA LISTA -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">🛒</span> Itens da lista atual
+        <div class="summary-card">
+          <div class="summary-label">Maior gasto em um item</div>
+          <div class="summary-value" id="maiorItem">R$ 0,00</div>
+          <div class="summary-extra" id="maiorItemNome">–</div>
         </div>
 
-        <div class="form-grid">
-          <div class="field field-produto">
-            <label for="produto">Produto</label>
-            <input type="text" id="produto" list="listaProdutos" placeholder="Ex: Arroz, Carne, Sabão em pó">
-            <datalist id="listaProdutos"></datalist>
-          </div>
-
-          <div class="field field-categoria">
-            <label for="categoria">Categoria</label>
-            <input list="listaCategorias" id="categoria" placeholder="Ex: Hortifruti, Carne, Limpeza">
-            <datalist id="listaCategorias">
-              <option value="Hortifruti"></option>
-              <option value="Carnes"></option>
-              <option value="Padaria"></option>
-              <option value="Bebidas"></option>
-              <option value="Limpeza"></option>
-              <option value="Higiene"></option>
-              <option value="Mercearia"></option>
-              <option value="Frios"></option>
-            </datalist>
-          </div>
-
-          <div class="field field-carteira">
-            <label for="carteiraItem">Carteira</label>
-            <select id="carteiraItem"></select>
-          </div>
-
-          <div class="field field-qtde">
-            <label for="quantidade">Quantidade</label>
-            <input type="number" id="quantidade" step="0.01" min="0">
-          </div>
-
-          <div class="field field-unidade">
-            <label for="unidade">Unidade</label>
-            <select id="unidade">
-              <option value="un">Unidade</option>
-              <option value="kg">Kg</option>
-              <option value="g">Gramas</option>
-              <option value="L">Litros</option>
-              <option value="cx">Caixa</option>
-            </select>
-          </div>
-
-          <div class="field field-preco">
-            <label for="preco">Preço por un/kg/L (R$)</label>
-            <input type="number" id="preco" step="0.01" min="0">
-          </div>
-
-          <div class="field field-btn">
-            <label>&nbsp;</label>
-            <button class="btn-primary" id="btnAdicionar">➕ Adicionar item</button>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Produto</th>
-                <th>Categoria</th>
-                <th>Carteira</th>
-                <th>Qtd</th>
-                <th class="right">Preço</th>
-                <th class="right">Total item</th>
-                <th class="right"></th>
-              </tr>
-            </thead>
-            <tbody id="tabelaItensBody"></tbody>
-          </table>
-        </div>
-
-        <div class="table-actions">
-          <span id="infoQuantidadeItens">Nenhum item adicionado ainda.</span>
-          <span style="font-size:0.75rem;">Dica: use carteiras diferentes para ver o impacto de Pix, crédito, VR etc.</span>
+        <div class="summary-card">
+          <div class="summary-label">Categorias distintas</div>
+          <div class="summary-value" id="qtdCategorias">0</div>
+          <div class="summary-extra">Útil para análise de perfil de consumo</div>
         </div>
       </div>
 
-      <!-- RESUMO LISTA -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">📊</span> Resumo da lista atual
+      <!-- ORÇAMENTO DETALHADO -->
+      <div class="budget-bar-container" id="budgetContainer" style="display:none;">
+        <div class="summary-label" style="margin-top:10px;">Utilização do orçamento da lista</div>
+        <div class="budget-bar-track">
+          <div class="budget-bar-fill" id="budgetBar"></div>
         </div>
+        <div class="budget-status" id="budgetStatus"></div>
+      </div>
+    </div>
 
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="summary-label">Total da lista</div>
-            <div class="summary-value" id="totalCompra">R$ 0,00</div>
-            <div class="summary-extra" id="summaryItens">0 itens</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Ticket médio por item</div>
-            <div class="summary-value" id="ticketMedio">R$ 0,00</div>
-            <div class="summary-extra">Total ÷ nº de itens</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Maior gasto em um item</div>
-            <div class="summary-value" id="maiorItem">R$ 0,00</div>
-            <div class="summary-extra" id="maiorItemNome">–</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Categorias distintas</div>
-            <div class="summary-value" id="qtdCategorias">0</div>
-            <div class="summary-extra">Perfil de consumo</div>
-          </div>
-        </div>
-
-        <div class="budget-bar-container" id="budgetContainer" style="display:none;">
-          <div class="summary-label" style="margin-top:10px;">Utilização do orçamento da lista</div>
-          <div class="budget-bar-track">
-            <div class="budget-bar-fill" id="budgetBar"></div>
-          </div>
-          <div class="budget-status" id="budgetStatus"></div>
-        </div>
+    <!-- GRÁFICOS DA LISTA ATUAL -->
+    <div class="card" style="margin-bottom: 14px;">
+      <div class="section-title">
+        <span class="icon">📈</span> Gráficos da lista atual
       </div>
 
-      <!-- GRÁFICOS LISTA -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">📈</span> Gráficos da lista atual
-        </div>
-
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h3>Gastos por categoria</h3>
-            <div class="chart-helper">Participação de cada categoria dentro da lista.</div>
-            <canvas id="chartCategorias" height="220"></canvas>
-          </div>
-          <div class="chart-card">
-            <h3>Top produtos</h3>
-            <div class="chart-helper">Até 5 produtos que mais pesam na lista.</div>
-            <canvas id="chartTopProdutos" height="220"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- VISÃO MÊS / GERAL -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">🌎</span> Visão geral por mês
-        </div>
-
-        <div class="summary-grid" style="margin-bottom:10px;">
-          <div class="summary-card">
-            <div class="summary-label">Total geral</div>
-            <div class="summary-value" id="totalGeralMeses">R$ 0,00</div>
-            <div class="summary-extra">Todos os meses</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Meses com dados</div>
-            <div class="summary-value" id="qtdMeses">0</div>
-            <div class="summary-extra"></div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Mês com maior gasto</div>
-            <div class="summary-value" id="mesTopLabel">–</div>
-            <div class="summary-extra" id="mesTopValor">R$ 0,00</div>
-          </div>
-
-          <div class="summary-card">
-            <div class="summary-label">Listas totais</div>
-            <div class="summary-value" id="qtdListasTotais">0</div>
-            <div class="summary-extra"></div>
-          </div>
-        </div>
-
+      <div class="charts-grid">
         <div class="chart-card">
-          <h3>Totais por mês</h3>
-          <div class="chart-helper">Soma de todas as listas em cada mês.</div>
-          <canvas id="chartTotaisMeses" height="240"></canvas>
-        </div>
-      </div>
-
-      <!-- VISÃO POR CARTEIRA -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">💳</span> Visão por carteira
+          <h3>Gastos por categoria (lista)</h3>
+          <div class="chart-helper">
+            Participação de cada categoria dentro da lista escolhida.
+          </div>
+          <canvas id="chartCategorias" height="220"></canvas>
         </div>
         <div class="chart-card">
-          <h3>Totais por carteira</h3>
-          <div class="chart-helper">Uso de Pix, crédito, débito, VR etc., em todos os meses.</div>
-          <canvas id="chartCarteiras" height="240"></canvas>
+          <h3>Top produtos da lista</h3>
+          <div class="chart-helper">
+            Até 5 produtos que mais pesam no valor da lista.
+          </div>
+          <canvas id="chartTopProdutos" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISÃO GERAL POR MÊS / TOTAL -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="section-title">
+        <span class="icon">🌎</span> Visão geral por mês (todas as listas)
+      </div>
+
+      <div class="summary-grid" style="margin-bottom:10px;">
+        <div class="summary-card">
+          <div class="summary-label">Total geral (todos os meses)</div>
+          <div class="summary-value" id="totalGeralMeses">R$ 0,00</div>
+          <div class="summary-extra">Soma de todas as listas de todos os meses</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Quantidade de meses com dados</div>
+          <div class="summary-value" id="qtdMeses">0</div>
+          <div class="summary-extra">Meses com pelo menos uma lista</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Mês com maior gasto</div>
+          <div class="summary-value" id="mesTopLabel">–</div>
+          <div class="summary-extra" id="mesTopValor">R$ 0,00</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Listas totais</div>
+          <div class="summary-value" id="qtdListasTotais">0</div>
+          <div class="summary-extra">Somando todos os meses</div>
         </div>
       </div>
 
-      <!-- BACKUP -->
-      <div class="card">
-        <div class="section-title">
-          <span class="icon">💾</span> Backup de dados (JSON)
+      <div class="chart-card">
+        <h3>Totais por mês</h3>
+        <div class="chart-helper">
+          Soma de todas as listas dentro de cada mês.
         </div>
-        <p style="font-size:0.8rem;color:#9ca3af;margin-top:0;margin-bottom:8px;">
-          Exporte um arquivo de backup (.json) para usar seus dados em outra máquina ou navegador.
-        </p>
-        <div class="row-flex">
-          <button class="btn-outline" id="btnExportarBackup">⬇️ Exportar backup</button>
-          <button class="btn-outline" id="btnImportarBackup">⬆️ Importar backup</button>
-          <input type="file" id="inputImportarBackup" accept=".json,application/json" style="display:none;">
-        </div>
-        <small style="font-size:0.75rem;color:#6b7280;">
-          O backup inclui meses, listas, itens e carteiras. No modo online, apenas complementa o banco.
-        </small>
+        <canvas id="chartTotaisMeses" height="240"></canvas>
       </div>
+    </div>
+
+    <!-- VISÃO POR CARTEIRA -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="section-title">
+        <span class="icon">💳</span> Visão por carteira (todas as listas, todos os meses)
+      </div>
+      <div class="chart-card">
+        <h3>Totais por carteira</h3>
+        <div class="chart-helper">
+          Quanto cada carteira (Pix, crédito, débito, VR etc.) está sendo usada no período completo.
+        </div>
+        <canvas id="chartCarteiras" height="240"></canvas>
+      </div>
+    </div>
+
+    <!-- BACKUP -->
+    <div class="card">
+      <div class="section-title">
+        <span class="icon">💾</span> Backup de dados
+      </div>
+      <p style="font-size:0.8rem;color:#9ca3af;margin-top:0;margin-bottom:8px;">
+        Exporte um arquivo de backup (.json) para usar seus dados em outra máquina ou navegador.
+      </p>
+      <div class="row-flex">
+        <button class="btn-outline" id="btnExportarBackup">⬇️ Exportar backup</button>
+        <button class="btn-outline" id="btnImportarBackup">⬆️ Importar backup</button>
+        <input type="file" id="inputImportarBackup" accept=".json,application/json" style="display:none;">
+      </div>
+      <small style="font-size:0.75rem;color:#6b7280;">
+        Depois de importar, os dados são recarregados com o conteúdo do backup (meses, listas, carteiras).
+      </small>
     </div>
   </div>
 
@@ -837,23 +815,7 @@
   </div>
 
   <script>
-  (function() {
-    // ================== CONFIGURAÇÃO PROFISSIONAL ==================
-    const CONFIG = {
-      storageKey: 'controleComprasMeses_v2',
-      useSupabase: false, // <<<<< Muda pra true quando for usar Supabase
-      supabaseUrl: 'https://SEU-PROJETO.supabase.co',
-      supabaseAnonKey: 'SUA-ANON-PUBLIC-KEY'
-    };
-
-    let supabaseClient = null;
-    let usuarioAtual = null;
-
-    if (CONFIG.useSupabase && window.supabase) {
-      supabaseClient = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
-    }
-
-    // ================== DADOS SUGERIDOS ==================
+    // ----- LISTA PADRÃO DE PRODUTOS (autocomplete) -----
     const produtosSugeridos = [
       { nome: 'Arroz', categoria: 'Mercearia' },
       { nome: 'Feijão', categoria: 'Mercearia' },
@@ -864,22 +826,27 @@
       { nome: 'Café', categoria: 'Mercearia' },
       { nome: 'Farinha de trigo', categoria: 'Mercearia' },
       { nome: 'Molho de tomate', categoria: 'Mercearia' },
+
       { nome: 'Leite', categoria: 'Bebidas' },
       { nome: 'Refrigerante', categoria: 'Bebidas' },
       { nome: 'Água mineral', categoria: 'Bebidas' },
       { nome: 'Suco de caixinha', categoria: 'Bebidas' },
+
       { nome: 'Pão francês', categoria: 'Padaria' },
       { nome: 'Pão de forma', categoria: 'Padaria' },
       { nome: 'Bolo', categoria: 'Padaria' },
+
       { nome: 'Queijo mussarela', categoria: 'Frios' },
       { nome: 'Presunto', categoria: 'Frios' },
       { nome: 'Mortadela', categoria: 'Frios' },
+
       { nome: 'Frango inteiro', categoria: 'Carnes' },
       { nome: 'Coxa de frango', categoria: 'Carnes' },
       { nome: 'Peito de frango', categoria: 'Carnes' },
       { nome: 'Carne bovina (patinho)', categoria: 'Carnes' },
       { nome: 'Carne bovina (músculo)', categoria: 'Carnes' },
       { nome: 'Linguiça', categoria: 'Carnes' },
+
       { nome: 'Tomate', categoria: 'Hortifruti' },
       { nome: 'Cebola', categoria: 'Hortifruti' },
       { nome: 'Alho', categoria: 'Hortifruti' },
@@ -888,11 +855,13 @@
       { nome: 'Banana', categoria: 'Hortifruti' },
       { nome: 'Maçã', categoria: 'Hortifruti' },
       { nome: 'Laranja', categoria: 'Hortifruti' },
+
       { nome: 'Sabão em pó', categoria: 'Limpeza' },
       { nome: 'Detergente', categoria: 'Limpeza' },
       { nome: 'Desinfetante', categoria: 'Limpeza' },
       { nome: 'Amaciante', categoria: 'Limpeza' },
       { nome: 'Água sanitária', categoria: 'Limpeza' },
+
       { nome: 'Sabonete', categoria: 'Higiene' },
       { nome: 'Shampoo', categoria: 'Higiene' },
       { nome: 'Condicionador', categoria: 'Higiene' },
@@ -901,23 +870,16 @@
       { nome: 'Desodorante', categoria: 'Higiene' }
     ];
 
-    // ================== ESTADO GLOBAL ==================
+    // ----- ESTADO: MESES, LISTAS, CARTEIRAS -----
+    const STORAGE_KEY = 'controleComprasMeses_v1';
     let meses = [];
     let mesAtivoId = null;
     let listaAtivaId = null;
-    let carteiras = [];
     let itemEditando = null;
 
-    // ================== ELEMENTOS DOM ==================
-    const authContainer = document.getElementById('authContainer');
-    const appContainer = document.getElementById('appContainer');
-    const authEmail = document.getElementById('authEmail');
-    const authSenha = document.getElementById('authSenha');
-    const btnCadastrar = document.getElementById('btnCadastrar');
-    const btnEntrar = document.getElementById('btnEntrar');
-    const btnSair = document.getElementById('btnSair');
-    const authStatus = document.getElementById('authStatus');
+    let carteiras = []; // {id, nome}
 
+    // ----- ELEMENTOS -----
     const selectMes = document.getElementById('selectMes');
     const selectLista = document.getElementById('selectLista');
     const btnNovoMes = document.getElementById('btnNovoMes');
@@ -971,23 +933,42 @@
     const btnImportarBackup = document.getElementById('btnImportarBackup');
     const inputImportarBackup = document.getElementById('inputImportarBackup');
 
-    // GRÁFICOS
+    // Gráficos
     let chartCategorias = null;
     let chartTopProdutos = null;
     let chartTotaisMeses = null;
     let chartCarteiras = null;
 
-    // ================== FUNÇÕES AUXILIARES ==================
+    // ----- FUNÇÕES AUXILIARES -----
+    function getMesAtivo() {
+      return meses.find(m => m.id === mesAtivoId) || null;
+    }
+
+    function getListaAtiva() {
+      const mes = getMesAtivo();
+      if (!mes) return null;
+      return mes.listas.find(l => l.id === listaAtivaId) || null;
+    }
+
     function formatarMoeda(valor) {
-      return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      return valor.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
     }
 
     function formatarQuantidade(quantidade, unidade) {
-      if (unidade === 'g') return quantidade.toFixed(0) + ' g';
-      if (unidade === 'kg') return quantidade.toFixed(3).replace('.', ',') + ' kg';
-      if (unidade === 'L') return quantidade.toFixed(3).replace('.', ',') + ' L';
-      if (unidade === 'cx') return quantidade.toFixed(2).replace('.', ',') + ' cx';
-      return quantidade.toFixed(2).replace('.', ',') + ' un';
+      if (unidade === 'g') {
+        return quantidade.toFixed(0) + ' g';
+      } else if (unidade === 'kg') {
+        return quantidade.toFixed(3).replace('.', ',') + ' kg';
+      } else if (unidade === 'L') {
+        return quantidade.toFixed(3).replace('.', ',') + ' L';
+      } else if (unidade === 'cx') {
+        return quantidade.toFixed(2).replace('.', ',') + ' cx';
+      } else {
+        return quantidade.toFixed(2).replace('.', ',') + ' un';
+      }
     }
 
     function idMesAtual() {
@@ -1002,6 +983,16 @@
       return `${mes}/${ano}`;
     }
 
+    function salvarEstado() {
+      const data = {
+        meses,
+        mesAtivoId,
+        listaAtivaId,
+        carteiras
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
     function inicializarCarteirasPadrao() {
       return [
         { id: 'c1', nome: 'Dinheiro' },
@@ -1013,29 +1004,9 @@
       ];
     }
 
-    function getMesAtivo() {
-      return meses.find(m => m.id === mesAtivoId) || null;
-    }
+    function carregarEstado() {
+      const raw = localStorage.getItem(STORAGE_KEY);
 
-    function getListaAtiva() {
-      const mes = getMesAtivo();
-      if (!mes) return null;
-      return mes.listas.find(l => l.id === listaAtivaId) || null;
-    }
-
-    function nomeCarteiraPorId(id) {
-      const c = carteiras.find(x => x.id === id);
-      return c ? c.nome : 'Sem carteira';
-    }
-
-    // ================== PERSISTÊNCIA LOCAL ==================
-    function salvarEstadoLocal() {
-      const data = { meses, mesAtivoId, listaAtivaId, carteiras };
-      localStorage.setItem(CONFIG.storageKey, JSON.stringify(data));
-    }
-
-    function carregarEstadoLocal() {
-      const raw = localStorage.getItem(CONFIG.storageKey);
       if (!raw) {
         const id = idMesAtual();
         const mesPadrao = {
@@ -1054,143 +1025,69 @@
         mesAtivoId = id;
         listaAtivaId = mesPadrao.listas[0].id;
         carteiras = inicializarCarteirasPadrao();
-        salvarEstadoLocal();
+        salvarEstado();
         return;
       }
 
       try {
         const data = JSON.parse(raw);
-        meses = Array.isArray(data.meses) ? data.meses : [];
-        mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
-        listaAtivaId = data.listaAtivaId || (getMesAtivo() && getMesAtivo().listas[0].id);
-        carteiras = Array.isArray(data.carteiras) && data.carteiras.length
-          ? data.carteiras
-          : inicializarCarteirasPadrao();
-      } catch {
-        localStorage.removeItem(CONFIG.storageKey);
-        carregarEstadoLocal();
+        if (Array.isArray(data.meses) && data.meses.length > 0) {
+          meses = data.meses;
+          mesAtivoId = data.mesAtivoId || meses[0].id;
+          const mes = getMesAtivo();
+          if (mes) {
+            listaAtivaId = data.listaAtivaId || (mes.listas[0] && mes.listas[0].id);
+          } else {
+            listaAtivaId = null;
+          }
+        } else {
+          const id = idMesAtual();
+          const mesPadrao = {
+            id,
+            nome: labelMes(id),
+            listas: [{
+              id: 'lista-1',
+              nome: 'Lista padrão',
+              itens: [],
+              proximoId: 1,
+              usarOrcamento: false,
+              valorOrcamento: ''
+            }]
+          };
+          meses = [mesPadrao];
+          mesAtivoId = id;
+          listaAtivaId = mesPadrao.listas[0].id;
+        }
+
+        if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
+          carteiras = data.carteiras;
+        } else {
+          carteiras = inicializarCarteirasPadrao();
+        }
+      } catch (e) {
+        console.error('Erro ao carregar estado:', e);
+        const id = idMesAtual();
+        const mesPadrao = {
+          id,
+          nome: labelMes(id),
+          listas: [{
+            id: 'lista-1',
+            nome: 'Lista padrão',
+            itens: [],
+            proximoId: 1,
+            usarOrcamento: false,
+            valorOrcamento: ''
+          }]
+        };
+        meses = [mesPadrao];
+        mesAtivoId = id;
+        listaAtivaId = mesPadrao.listas[0].id;
+        carteiras = inicializarCarteirasPadrao();
+        salvarEstado();
       }
     }
 
-    // ================== PERSISTÊNCIA SUPABASE (OPCIONAL) ==================
-    async function salvarEstado() {
-      // sempre salva local também
-      salvarEstadoLocal();
-
-      if (!CONFIG.useSupabase || !supabaseClient || !usuarioAtual) return;
-
-      const state = { meses, mesAtivoId, listaAtivaId, carteiras };
-      const { error } = await supabaseClient
-        .from('shopping_states')
-        .upsert({ user_id: usuarioAtual.id, data: state });
-
-      if (error) console.error('Erro ao salvar no Supabase:', error.message);
-    }
-
-    async function carregarEstadoBD() {
-      if (!CONFIG.useSupabase || !supabaseClient || !usuarioAtual) {
-        carregarEstadoLocal();
-        return;
-      }
-
-      const { data, error } = await supabaseClient
-        .from('shopping_states')
-        .select('data')
-        .eq('user_id', usuarioAtual.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Erro ao carregar do Supabase:', error.message);
-        carregarEstadoLocal();
-        return;
-      }
-
-      if (data && data.data) {
-        const state = data.data;
-        meses = state.meses || [];
-        mesAtivoId = state.mesAtivoId || (meses[0] && meses[0].id);
-        listaAtivaId = state.listaAtivaId || (getMesAtivo() && getMesAtivo().listas[0].id);
-        carteiras = state.carteiras && state.carteiras.length
-          ? state.carteiras
-          : inicializarCarteirasPadrao();
-      } else {
-        carregarEstadoLocal();
-        await salvarEstado();
-      }
-    }
-
-    // ================== AUTH SUPABASE ==================
-    async function cadastrarUsuario() {
-      if (!CONFIG.useSupabase || !supabaseClient) {
-        authStatus.textContent = 'Supabase está desativado na configuração.';
-        return;
-      }
-      const email = authEmail.value.trim();
-      const senha = authSenha.value.trim();
-      if (!email || !senha) {
-        authStatus.textContent = 'Informe e-mail e senha.';
-        return;
-      }
-      authStatus.textContent = 'Criando conta...';
-
-      const { error } = await supabaseClient.auth.signUp({ email, password: senha });
-      authStatus.textContent = error
-        ? 'Erro ao criar conta: ' + error.message
-        : 'Conta criada. Verifique seu e-mail (se exigido no projeto).';
-    }
-
-    async function entrarUsuario() {
-      if (!CONFIG.useSupabase || !supabaseClient) {
-        authStatus.textContent = 'Supabase desativado. Sistema está em modo local (sem login).';
-        return;
-      }
-      const email = authEmail.value.trim();
-      const senha = authSenha.value.trim();
-      if (!email || !senha) {
-        authStatus.textContent = 'Informe e-mail e senha.';
-        return;
-      }
-      authStatus.textContent = 'Entrando...';
-
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password: senha
-      });
-
-      if (error) {
-        authStatus.textContent = 'Erro ao entrar: ' + error.message;
-        return;
-      }
-
-      usuarioAtual = data.user;
-      authStatus.textContent = 'Login realizado.';
-      await aposLogin();
-    }
-
-    async function sairUsuario() {
-      if (CONFIG.useSupabase && supabaseClient) {
-        await supabaseClient.auth.signOut();
-      }
-      usuarioAtual = null;
-      appContainer.style.display = 'none';
-      authContainer.style.display = 'block';
-      btnSair.style.display = 'none';
-      authStatus.textContent = 'Sessão encerrada.';
-    }
-
-    async function aposLogin() {
-      authContainer.style.display = 'none';
-      appContainer.style.display = 'block';
-      btnSair.style.display = CONFIG.useSupabase ? 'inline-flex' : 'none';
-      await carregarEstadoBD();
-      atualizarSelectMeses();
-      atualizarSelectListas();
-      atualizarSelectCarteiras();
-      atualizarResumoCarteirasChips();
-      carregarListaNaUI();
-    }
-
-    // ================== UI: AUTOCOMPLETE PRODUTOS ==================
+    // ----- AUTOCOMPLETE PRODUTO -> CATEGORIA -----
     function inicializarListaProdutos() {
       datalistProdutos.innerHTML = '';
       produtosSugeridos.forEach(p => {
@@ -1201,7 +1098,8 @@
     }
 
     function sugerirCategoriaParaProduto(nomeProduto) {
-      const nome = (nomeProduto || '').trim().toLowerCase();
+      if (!nomeProduto) return;
+      const nome = nomeProduto.trim().toLowerCase();
       if (!nome) return;
       const encontrado = produtosSugeridos.find(p => p.nome.toLowerCase() === nome);
       if (encontrado && !inputCategoria.value.trim()) {
@@ -1216,17 +1114,20 @@
       sugerirCategoriaParaProduto(inputProduto.value);
     });
 
-    // ================== UI: CARTEIRAS ==================
+    // ----- CARTEIRAS: UI -----
     function atualizarSelectCarteiras() {
       selectCarteiraItem.innerHTML = '';
       editCarteira.innerHTML = '';
 
-      const optNenhuma = document.createElement('option');
-      optNenhuma.value = '';
-      optNenhuma.textContent = 'Sem carteira';
-      selectCarteiraItem.appendChild(optNenhuma);
-      const optNenhuma2 = optNenhuma.cloneNode(true);
-      editCarteira.appendChild(optNenhuma2);
+      if (carteiras.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Sem carteiras';
+        selectCarteiraItem.appendChild(opt);
+        const opt2 = opt.cloneNode(true);
+        editCarteira.appendChild(opt2);
+        return;
+      }
 
       carteiras.forEach(c => {
         const opt = document.createElement('option');
@@ -1243,7 +1144,7 @@
 
     function atualizarResumoCarteirasChips() {
       listaCarteirasResumo.innerHTML = '';
-      if (!carteiras.length) {
+      if (carteiras.length === 0) {
         const span = document.createElement('span');
         span.textContent = 'Nenhuma carteira cadastrada.';
         span.style.fontSize = '0.8rem';
@@ -1251,6 +1152,7 @@
         listaCarteirasResumo.appendChild(span);
         return;
       }
+
       carteiras.forEach(c => {
         const chip = document.createElement('div');
         chip.classList.add('chip');
@@ -1273,7 +1175,24 @@
       salvarEstado();
     }
 
-    // ================== UI: MESES E LISTAS ==================
+    btnAdicionarCarteira.addEventListener('click', (e) => {
+      e.preventDefault();
+      adicionarCarteira();
+    });
+
+    inputNovaCarteiraNome.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        adicionarCarteira();
+      }
+    });
+
+    function nomeCarteiraPorId(id) {
+      const c = carteiras.find(x => x.id === id);
+      return c ? c.nome : 'Sem carteira';
+    }
+
+    // ----- UI: MESES E LISTAS -----
     function atualizarSelectMeses() {
       selectMes.innerHTML = '';
       meses.forEach(m => {
@@ -1288,7 +1207,7 @@
     function atualizarSelectListas() {
       const mes = getMesAtivo();
       selectLista.innerHTML = '';
-      if (!mes || !mes.listas.length) {
+      if (!mes || !Array.isArray(mes.listas) || mes.listas.length === 0) {
         listaAtivaId = null;
         return;
       }
@@ -1299,7 +1218,9 @@
         if (l.id === listaAtivaId) opt.selected = true;
         selectLista.appendChild(opt);
       });
-      if (!listaAtivaId) listaAtivaId = mes.listas[0].id;
+      if (!listaAtivaId) {
+        listaAtivaId = mes.listas[0].id;
+      }
     }
 
     function carregarListaNaUI() {
@@ -1327,79 +1248,80 @@
       atualizarResumo();
     }
 
-    // ================== LISTA: RENDER, RESUMO ==================
+    // ----- RENDERIZAÇÃO LISTA -----
     function renderizarTabela() {
       const lista = getListaAtiva();
       if (!lista) return;
       const itens = lista.itens || [];
+
       tabelaItensBody.innerHTML = '';
 
-      itens.forEach((item, idx) => {
+      itens.forEach((item, index) => {
         const tr = document.createElement('tr');
 
         const tdSeq = document.createElement('td');
-        tdSeq.textContent = idx + 1;
+        tdSeq.textContent = index + 1;
 
-        const tdProd = document.createElement('td');
-        tdProd.textContent = item.produto;
+        const tdProduto = document.createElement('td');
+        tdProduto.textContent = item.produto;
 
-        const tdCat = document.createElement('td');
-        const catLabel = item.categoria && item.categoria.trim()
+        const tdCategoria = document.createElement('td');
+        const categoriaLabel = item.categoria && item.categoria.trim()
           ? item.categoria.trim()
           : 'Sem categoria';
-        const spanCat = document.createElement('span');
-        spanCat.classList.add('tag');
-        if (!item.categoria) spanCat.classList.add('tag-default');
-        spanCat.textContent = catLabel;
-        tdCat.appendChild(spanCat);
+        const spanTag = document.createElement('span');
+        spanTag.classList.add('tag');
+        if (!item.categoria) spanTag.classList.add('tag-default');
+        spanTag.textContent = categoriaLabel;
+        tdCategoria.appendChild(spanTag);
 
-        const tdCart = document.createElement('td');
-        const spanCart = document.createElement('span');
-        spanCart.classList.add('tag');
-        spanCart.textContent = item.carteiraId ? nomeCarteiraPorId(item.carteiraId) : 'Sem carteira';
-        tdCart.appendChild(spanCart);
+        const tdCarteira = document.createElement('td');
+        const carteiraNome = item.carteiraId ? nomeCarteiraPorId(item.carteiraId) : 'Sem carteira';
+        const spanCarteira = document.createElement('span');
+        spanCarteira.classList.add('tag');
+        spanCarteira.textContent = carteiraNome;
+        tdCarteira.appendChild(spanCarteira);
 
-        const tdQtd = document.createElement('td');
-        tdQtd.textContent = formatarQuantidade(item.quantidade, item.unidade);
+        const tdQuantidade = document.createElement('td');
+        tdQuantidade.textContent = formatarQuantidade(item.quantidade, item.unidade);
 
         const tdPreco = document.createElement('td');
         tdPreco.classList.add('right');
         tdPreco.textContent = formatarMoeda(item.preco);
 
-        const tdTotal = document.createElement('td');
-        tdTotal.classList.add('right');
-        tdTotal.textContent = formatarMoeda(item.totalItem);
+        const tdTotalItem = document.createElement('td');
+        tdTotalItem.classList.add('right');
+        tdTotalItem.textContent = formatarMoeda(item.totalItem);
 
-        const tdAcoes = document.createElement('td');
-        tdAcoes.classList.add('right');
+        const tdAcao = document.createElement('td');
+        tdAcao.classList.add('right');
 
         const btnEditar = document.createElement('button');
         btnEditar.textContent = 'Editar';
         btnEditar.classList.add('btn-small', 'btn-outline');
         btnEditar.style.marginRight = '6px';
         btnEditar.addEventListener('click', () => abrirEditor(item.id));
+        tdAcao.appendChild(btnEditar);
 
-        const btnExcluir = document.createElement('button');
-        btnExcluir.textContent = 'Excluir';
-        btnExcluir.classList.add('btn-small', 'btn-danger');
-        btnExcluir.addEventListener('click', () => removerItem(item.id));
-
-        tdAcoes.appendChild(btnEditar);
-        tdAcoes.appendChild(btnExcluir);
+        const btnRemover = document.createElement('button');
+        btnRemover.textContent = 'Excluir';
+        btnRemover.classList.add('btn-small', 'btn-danger');
+        btnRemover.addEventListener('click', () => removerItem(item.id));
+        tdAcao.appendChild(btnRemover);
 
         tr.appendChild(tdSeq);
-        tr.appendChild(tdProd);
-        tr.appendChild(tdCat);
-        tr.appendChild(tdCart);
-        tr.appendChild(tdQtd);
+        tr.appendChild(tdProduto);
+        tr.appendChild(tdCategoria);
+        tr.appendChild(tdCarteira);
+        tr.appendChild(tdQuantidade);
         tr.appendChild(tdPreco);
-        tr.appendChild(tdTotal);
-        tr.appendChild(tdAcoes);
+        tr.appendChild(tdTotalItem);
+        tr.appendChild(tdAcao);
 
         tabelaItensBody.appendChild(tr);
       });
 
-      if (!itens.length) {
+      if (itens.length === 0) {
         infoQuantidadeItensSpan.textContent = 'Nenhum item adicionado ainda.';
       } else if (itens.length === 1) {
         infoQuantidadeItensSpan.textContent = '1 item na lista.';
@@ -1411,17 +1333,19 @@
     function atualizarResumo() {
       const lista = getListaAtiva();
       if (!lista) return;
+
       const itens = lista.itens || [];
-      const total = itens.reduce((s, i) => s + i.totalItem, 0);
+      const total = itens.reduce((soma, item) => soma + item.totalItem, 0);
 
       totalCompraSpan.textContent = formatarMoeda(total);
       summaryItensSpan.textContent = `${itens.length} item${itens.length === 1 ? '' : 's'}`;
 
-      const ticketMedio = itens.length ? total / itens.length : 0;
+      const ticketMedio = itens.length > 0 ? total / itens.length : 0;
       ticketMedioSpan.textContent = formatarMoeda(ticketMedio);
 
-      if (itens.length) {
-        const maior = itens.reduce((acc, i) => i.totalItem > acc.totalItem ? i : acc, itens[0]);
+      if (itens.length > 0) {
+        const maior = itens.reduce((acc, item) =>
+          item.totalItem > acc.totalItem ? item : acc, itens[0]);
         maiorItemSpan.textContent = formatarMoeda(maior.totalItem);
         maiorItemNomeSpan.textContent = maior.produto;
       } else {
@@ -1429,27 +1353,31 @@
         maiorItemNomeSpan.textContent = '–';
       }
 
-      const catSet = new Set(
+      const categoriasSet = new Set(
         itens.map(i => (i.categoria && i.categoria.trim()) ? i.categoria.trim() : 'Sem categoria')
       );
-      qtdCategoriasSpan.textContent = itens.length ? catSet.size : 0;
+      qtdCategoriasSpan.textContent = itens.length === 0 ? 0 : categoriasSet.size;
 
-      // orçamento
-      if (lista.usarOrcamento && lista.valorOrcamento) {
+      // Orçamento da lista
+      if (lista.usarOrcamento && lista.valorOrcamento !== '') {
         const orcamento = parseFloat(String(lista.valorOrcamento).replace(',', '.')) || 0;
         if (orcamento > 0) {
           budgetContainer.style.display = 'block';
           const perc = Math.min(100, (total / orcamento) * 100);
           budgetBar.style.width = perc.toFixed(1) + '%';
-          const diff = orcamento - total;
-          if (diff > 0) {
-            budgetStatus.textContent = `Você ainda pode gastar ${formatarMoeda(diff)} (${perc.toFixed(1)}% do orçamento).`;
+
+          const diferenca = orcamento - total;
+          if (diferenca > 0) {
+            budgetStatus.textContent =
+              `Você ainda pode gastar ${formatarMoeda(diferenca)} (${perc.toFixed(1)}% do orçamento utilizado).`;
             budgetStatus.className = 'budget-status budget-ok';
-          } else if (diff === 0) {
-            budgetStatus.textContent = `Você atingiu exatamente o orçamento (${perc.toFixed(1)}% utilizado).`;
+          } else if (diferenca === 0) {
+            budgetStatus.textContent =
+              `Você atingiu exatamente o orçamento (${perc.toFixed(1)}% utilizado).`;
             budgetStatus.className = 'budget-status budget-alerta';
           } else {
-            budgetStatus.textContent = `Você estourou o orçamento em ${formatarMoeda(Math.abs(diff))} (${perc.toFixed(1)}% do orçamento).`;
+            budgetStatus.textContent =
+              `Você ultrapassou o orçamento em ${formatarMoeda(Math.abs(diferenca))} (${perc.toFixed(1)}% do orçamento).`;
             budgetStatus.className = 'budget-status budget-estourado';
           }
         } else {
@@ -1464,46 +1392,63 @@
       salvarEstado();
     }
 
-    // ================== GRÁFICOS ==================
+    // ----- GRÁFICOS DA LISTA ATUAL -----
     function atualizarGraficos() {
       const lista = getListaAtiva();
       const itens = lista ? (lista.itens || []) : [];
 
-      // categorias
+      // Gastos por categoria
       const gastosPorCategoria = {};
-      itens.forEach(i => {
-        const c = (i.categoria && i.categoria.trim()) ? i.categoria.trim() : 'Sem categoria';
-        gastosPorCategoria[c] = (gastosPorCategoria[c] || 0) + i.totalItem;
+      itens.forEach(item => {
+        const cat = (item.categoria && item.categoria.trim()) ? item.categoria.trim() : 'Sem categoria';
+        gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + item.totalItem;
       });
-      const labelsCat = Object.keys(gastosPorCategoria);
-      const valuesCat = Object.values(gastosPorCategoria);
+
+      const categorias = Object.keys(gastosPorCategoria);
+      const valoresCategorias = Object.values(gastosPorCategoria);
 
       const ctxCat = document.getElementById('chartCategorias').getContext('2d');
       if (chartCategorias) chartCategorias.destroy();
       chartCategorias = new Chart(ctxCat, {
         type: 'doughnut',
-        data: { labels: labelsCat, datasets: [{ data: valuesCat }] },
+        data: {
+          labels: categorias,
+          datasets: [{ data: valoresCategorias }]
+        },
         options: {
           plugins: {
-            legend: { position: 'bottom', labels: { color: '#e5e7eb', font: { size: 11 } } },
+            legend: {
+              position: 'bottom',
+              labels: { color: '#e5e7eb', font: { size: 11 } }
+            },
             tooltip: {
               callbacks: {
-                label: ctx => `${ctx.label}: ${formatarMoeda(ctx.raw || 0)}`
+                label: (context) => {
+                  const label = context.label || '';
+                  const value = context.raw || 0;
+                  return `${label}: ${formatarMoeda(value)}`;
+                }
               }
             }
           }
         }
       });
 
-      // top produtos
-      const top = [...itens].sort((a, b) => b.totalItem - a.totalItem).slice(0, 5);
-      const labelsTop = top.map(i => i.produto);
-      const valuesTop = top.map(i => i.totalItem);
+      // Top produtos
+      const itensOrdenados = [...itens]
+        .sort((a, b) => b.totalItem - a.totalItem)
+        .slice(0, 5);
+      const labelsTop = itensOrdenados.map(i => i.produto);
+      const valoresTop = itensOrdenados.map(i => i.totalItem);
+
       const ctxTop = document.getElementById('chartTopProdutos').getContext('2d');
       if (chartTopProdutos) chartTopProdutos.destroy();
       chartTopProdutos = new Chart(ctxTop, {
         type: 'bar',
-        data: { labels: labelsTop, datasets: [{ data: valuesTop }] },
+        data: {
+          labels: labelsTop,
+          datasets: [{ data: valoresTop }]
+        },
         options: {
           scales: {
             x: { ticks: { color: '#e5e7eb', font: { size: 11 } } },
@@ -1511,37 +1456,44 @@
               ticks: {
                 color: '#e5e7eb',
                 font: { size: 11 },
-                callback: v => formatarMoeda(v)
+                callback: (value) => formatarMoeda(value)
               }
             }
           },
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: ctx => formatarMoeda(ctx.raw || 0) } }
+            tooltip: {
+              callbacks: {
+                label: (context) => formatarMoeda(context.raw || 0)
+              }
+            }
           }
         }
       });
     }
 
+    // ----- GRÁFICO GERAL POR MÊS E POR CARTEIRA -----
     function atualizarGraficosGerais() {
       const labelsMes = [];
-      const valuesMes = [];
+      const valoresMes = [];
       let totalGeral = 0;
       let qtdListasTotais = 0;
-      const totaisCarteiras = {};
+
+      const totaisCarteiras = {}; // idCarteira -> valor
 
       meses.forEach(m => {
         let totalMes = 0;
         (m.listas || []).forEach(l => {
           qtdListasTotais++;
-          (l.itens || []).forEach(i => {
-            totalMes += i.totalItem;
-            const idC = i.carteiraId || 'sem';
-            totaisCarteiras[idC] = (totaisCarteiras[idC] || 0) + i.totalItem;
+          (l.itens || []).forEach(item => {
+            totalMes += item.totalItem;
+
+            const idCarteira = item.carteiraId || 'sem';
+            totaisCarteiras[idCarteira] = (totaisCarteiras[idCarteira] || 0) + item.totalItem;
           });
         });
         labelsMes.push(m.nome || labelMes(m.id));
-        valuesMes.push(totalMes);
+        valoresMes.push(totalMes);
         totalGeral += totalMes;
       });
 
@@ -1549,24 +1501,31 @@
       qtdMesesSpan.textContent = meses.length;
       qtdListasTotaisSpan.textContent = qtdListasTotais;
 
-      if (meses.length) {
-        let idx = 0;
-        let max = valuesMes[0] || 0;
-        for (let i = 1; i < valuesMes.length; i++) {
-          if (valuesMes[i] > max) { max = valuesMes[i]; idx = i; }
+      if (meses.length > 0) {
+        let idxTop = 0;
+        let maxVal = valoresMes[0] || 0;
+        for (let i = 1; i < valoresMes.length; i++) {
+          if (valoresMes[i] > maxVal) {
+            maxVal = valoresMes[i];
+            idxTop = i;
+          }
         }
-        mesTopLabelSpan.textContent = labelsMes[idx];
-        mesTopValorSpan.textContent = formatarMoeda(max);
+        mesTopLabelSpan.textContent = labelsMes[idxTop];
+        mesTopValorSpan.textContent = formatarMoeda(maxVal);
       } else {
         mesTopLabelSpan.textContent = '–';
         mesTopValorSpan.textContent = 'R$ 0,00';
       }
 
+      // Gráfico por mês
       const ctxMes = document.getElementById('chartTotaisMeses').getContext('2d');
       if (chartTotaisMeses) chartTotaisMeses.destroy();
       chartTotaisMeses = new Chart(ctxMes, {
         type: 'bar',
-        data: { labels: labelsMes, datasets: [{ data: valuesMes }] },
+        data: {
+          labels: labelsMes,
+          datasets: [{ data: valoresMes }]
+        },
         options: {
           scales: {
             x: { ticks: { color: '#e5e7eb', font: { size: 11 } } },
@@ -1574,28 +1533,42 @@
               ticks: {
                 color: '#e5e7eb',
                 font: { size: 11 },
-                callback: v => formatarMoeda(v)
+                callback: (value) => formatarMoeda(value)
               }
             }
           },
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: ctx => formatarMoeda(ctx.raw || 0) } }
+            tooltip: {
+              callbacks: {
+                label: (context) => formatarMoeda(context.raw || 0)
+              }
+            }
           }
         }
       });
 
-      const labelsC = [];
-      const valuesC = [];
+      // Gráfico por carteira
+      const labelsCarteiras = [];
+      const valoresCarteiras = [];
+
       Object.keys(totaisCarteiras).forEach(id => {
-        labelsC.push(id === 'sem' ? 'Sem carteira' : nomeCarteiraPorId(id));
-        valuesC.push(totaisCarteiras[id]);
+        if (id === 'sem') {
+          labelsCarteiras.push('Sem carteira');
+        } else {
+          labelsCarteiras.push(nomeCarteiraPorId(id));
+        }
+        valoresCarteiras.push(totaisCarteiras[id]);
       });
-      const ctxC = document.getElementById('chartCarteiras').getContext('2d');
+
+      const ctxCarteiras = document.getElementById('chartCarteiras').getContext('2d');
       if (chartCarteiras) chartCarteiras.destroy();
-      chartCarteiras = new Chart(ctxC, {
+      chartCarteiras = new Chart(ctxCarteiras, {
         type: 'bar',
-        data: { labels: labelsC, datasets: [{ data: valuesC }] },
+        data: {
+          labels: labelsCarteiras,
+          datasets: [{ data: valoresCarteiras }]
+        },
         options: {
           scales: {
             x: { ticks: { color: '#e5e7eb', font: { size: 11 } } },
@@ -1603,41 +1576,57 @@
               ticks: {
                 color: '#e5e7eb',
                 font: { size: 11 },
-                callback: v => formatarMoeda(v)
+                callback: (value) => formatarMoeda(value)
               }
             }
           },
           plugins: {
             legend: { display: false },
-            tooltip: { callbacks: { label: ctx => formatarMoeda(ctx.raw || 0) } }
+            tooltip: {
+              callbacks: {
+                label: (context) => formatarMoeda(context.raw || 0)
+              }
+            }
           }
         }
       });
     }
 
-    // ================== ITENS: CRUD ==================
+    // ----- AÇÕES (ITENS) -----
     function adicionarItem() {
       const lista = getListaAtiva();
       if (!lista) return;
+
       const produto = inputProduto.value.trim();
       const categoria = inputCategoria.value.trim();
       const carteiraId = selectCarteiraItem.value || null;
-      const qtdStr = document.getElementById('quantidade').value;
-      const precoStr = document.getElementById('preco').value;
+      const quantidadeInput = document.getElementById('quantidade').value;
+      const precoInput = document.getElementById('preco').value;
       const unidade = document.getElementById('unidade').value;
 
-      const quantidade = parseFloat(String(qtdStr).replace(',', '.'));
-      const preco = parseFloat(String(precoStr).replace(',', '.'));
+      const quantidade = parseFloat(String(quantidadeInput).replace(',', '.'));
+      const preco = parseFloat(String(precoInput).replace(',', '.'));
 
-      if (!produto) return alert('Informe o nome do produto.');
-      if (!quantidade || quantidade <= 0) return alert('Informe uma quantidade válida.');
-      if (!preco || preco <= 0) return alert('Informe um preço válido.');
+      if (!produto) {
+        alert('Informe o nome do produto.');
+        return;
+      }
+      if (isNaN(quantidade) || quantidade <= 0) {
+        alert('Informe uma quantidade válida.');
+        return;
+      }
+      if (isNaN(preco) || preco <= 0) {
+        alert('Informe um preço válido.');
+        return;
+      }
 
-      const totalItem = unidade === 'g'
-        ? (quantidade / 1000) * preco
-        : quantidade * preco;
+      let totalItem;
+      if (unidade === 'g') {
+        totalItem = (quantidade / 1000) * preco;
+      } else {
+        totalItem = quantidade * preco;
+      }
 
-      if (!lista.proximoId) lista.proximoId = 1;
       const item = {
         id: lista.proximoId++,
         produto,
@@ -1650,6 +1639,7 @@
       };
 
       lista.itens.push(item);
+
       inputProduto.value = '';
       inputCategoria.value = '';
       document.getElementById('quantidade').value = '';
@@ -1663,6 +1653,7 @@
     function removerItem(id) {
       const lista = getListaAtiva();
       if (!lista) return;
+
       lista.itens = lista.itens.filter(i => i.id !== id);
       renderizarTabela();
       atualizarResumo();
@@ -1671,21 +1662,26 @@
     function limparLista() {
       const lista = getListaAtiva();
       if (!lista) return;
+
       if (!confirm(`Limpar todos os itens e o orçamento da lista "${lista.nome}"?`)) return;
+
       lista.itens = [];
       lista.proximoId = 1;
       lista.usarOrcamento = false;
       lista.valorOrcamento = '';
+
       carregarListaNaUI();
       salvarEstado();
     }
 
-    // ================== EDIÇÃO DE ITEM ==================
+    // ----- EDIÇÃO DE ITEM -----
     function abrirEditor(id) {
       const lista = getListaAtiva();
       if (!lista) return;
+
       const item = lista.itens.find(i => i.id === id);
       if (!item) return;
+
       itemEditando = item;
 
       editProduto.value = item.produto;
@@ -1693,9 +1689,26 @@
       editQuantidade.value = item.quantidade;
       editUnidade.value = item.unidade;
       editPreco.value = item.preco;
-      editCarteira.value = item.carteiraId || '';
 
+      // set carteira
+      editarPreencherCarteirasSelect();
+      editCarteira.value = item.carteiraId || '';
       modalEdicao.style.display = 'flex';
+    }
+
+    function editarPreencherCarteirasSelect() {
+      editCarteira.innerHTML = '';
+      const optNenhuma = document.createElement('option');
+      optNenhuma.value = '';
+      optNenhuma.textContent = 'Sem carteira';
+      editCarteira.appendChild(optNenhuma);
+
+      carteiras.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.nome;
+        editCarteira.appendChild(opt);
+      });
     }
 
     function fecharEditor() {
@@ -1703,73 +1716,49 @@
       itemEditando = null;
     }
 
-    // ================== BACKUP ==================
-    function exportarBackup() {
-      salvarEstadoLocal();
-      const raw = localStorage.getItem(CONFIG.storageKey);
-      const blob = new Blob([raw], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      const hoje = new Date().toISOString().slice(0,10);
-      a.href = url;
-      a.download = `compras-backup-${hoje}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    btnCancelarEdicao.addEventListener('click', fecharEditor);
 
-    function importarBackup(arquivo) {
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const data = JSON.parse(e.target.result);
-          if (!data || !Array.isArray(data.meses)) {
-            alert('Arquivo de backup inválido.');
-            return;
-          }
-          meses = data.meses;
-          mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
-          listaAtivaId = data.listaAtivaId || (getMesAtivo() && getMesAtivo().listas[0].id);
-          carteiras = Array.isArray(data.carteiras) && data.carteiras.length
-            ? data.carteiras
-            : inicializarCarteirasPadrao();
-          salvarEstadoLocal();
-          atualizarSelectMeses();
-          atualizarSelectListas();
-          atualizarSelectCarteiras();
-          atualizarResumoCarteirasChips();
-          carregarListaNaUI();
-          alert('Backup importado com sucesso.');
-        } catch (err) {
-          console.error(err);
-          alert('Erro ao ler o arquivo de backup.');
-        }
-      };
-      reader.readAsText(arquivo, 'utf-8');
-    }
+    btnSalvarEdicao.addEventListener('click', () => {
+      if (!itemEditando) return;
 
-    // ================== EVENTOS ==================
-    btnAdicionar.addEventListener('click', e => {
-      e.preventDefault();
-      adicionarItem();
-    });
+      const prod = editProduto.value.trim();
+      const cat = editCategoria.value.trim();
+      const qtd = parseFloat(String(editQuantidade.value).replace(',', '.'));
+      const und = editUnidade.value;
+      const preco = parseFloat(String(editPreco.value).replace(',', '.'));
+      const carteiraId = editCarteira.value || null;
 
-    document.getElementById('preco').addEventListener('keypress', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        adicionarItem();
+      if (!prod || isNaN(qtd) || qtd <= 0 || isNaN(preco) || preco <= 0) {
+        alert('Preencha os campos corretamente.');
+        return;
       }
+
+      let totalItem = und === 'g'
+        ? (qtd / 1000) * preco
+        : qtd * preco;
+
+      itemEditando.produto = prod;
+      itemEditando.categoria = cat;
+      itemEditando.quantidade = qtd;
+      itemEditando.unidade = und;
+      itemEditando.preco = preco;
+      itemEditando.totalItem = totalItem;
+      itemEditando.carteiraId = carteiraId;
+
+      renderizarTabela();
+      atualizarResumo();
+      fecharEditor();
     });
 
-    btnLimparLista.addEventListener('click', e => {
-      e.preventDefault();
-      limparLista();
+    modalEdicao.addEventListener('click', (e) => {
+      if (e.target === modalEdicao) fecharEditor();
     });
 
+    // ----- EVENTOS: ORÇAMENTO, LISTAS, MESES -----
     usarOrcamento.addEventListener('change', () => {
       const lista = getListaAtiva();
       if (!lista) return;
+
       lista.usarOrcamento = usarOrcamento.checked;
       if (!lista.usarOrcamento) {
         lista.valorOrcamento = '';
@@ -1786,20 +1775,42 @@
       atualizarResumo();
     });
 
+    btnAdicionar.addEventListener('click', (e) => {
+      e.preventDefault();
+      adicionarItem();
+    });
+
+    document.getElementById('preco').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        adicionarItem();
+      }
+    });
+
+    btnLimparLista.addEventListener('click', (e) => {
+      e.preventDefault();
+      limparLista();
+    });
+
     btnNovoMes.addEventListener('click', () => {
       const hoje = new Date();
       const anoDefault = hoje.getFullYear();
       const mesDefault = String(hoje.getMonth() + 1).padStart(2, '0');
       const input = prompt('Informe o mês/ano no formato MM/AAAA:', `${mesDefault}/${anoDefault}`);
       if (!input) return;
+
       const match = input.match(/^(\d{2})\/(\d{4})$/);
-      if (!match) return alert('Formato inválido. Use MM/AAAA.');
+      if (!match) {
+        alert('Formato inválido. Use MM/AAAA, por exemplo 11/2025.');
+        return;
+      }
 
       const mes = match[1];
       const ano = match[2];
       const id = `${ano}-${mes}`;
       if (meses.some(m => m.id === id)) {
-        return alert('Esse mês já existe. Selecione no campo de mês.');
+        alert('Esse mês já existe. Selecione no combobox.');
+        return;
       }
 
       const novoMes = {
@@ -1828,15 +1839,17 @@
       if (!mes) return;
       const nome = prompt('Nome da nova lista para este mês:', 'Nova lista');
       if (!nome || !nome.trim()) return;
+
       const id = 'lista-' + Date.now();
-      mes.listas.push({
+      const novaLista = {
         id,
         nome: nome.trim(),
         itens: [],
         proximoId: 1,
         usarOrcamento: false,
         valorOrcamento: ''
-      });
+      };
+      mes.listas.push(novaLista);
       listaAtivaId = id;
       atualizarSelectListas();
       carregarListaNaUI();
@@ -1846,7 +1859,11 @@
     selectMes.addEventListener('change', () => {
       mesAtivoId = selectMes.value;
       const mes = getMesAtivo();
-      listaAtivaId = mes && mes.listas.length ? mes.listas[0].id : null;
+      if (mes && mes.listas.length > 0) {
+        listaAtivaId = mes.listas[0].id;
+      } else {
+        listaAtivaId = null;
+      }
       atualizarSelectListas();
       carregarListaNaUI();
       salvarEstado();
@@ -1858,113 +1875,85 @@
       salvarEstado();
     });
 
-    btnAdicionarCarteira.addEventListener('click', e => {
-      e.preventDefault();
-      adicionarCarteira();
+    // ----- BACKUP: EXPORTAR / IMPORTAR -----
+    function exportarBackup() {
+      salvarEstado();
+      const raw = localStorage.getItem(STORAGE_KEY) ||
+        JSON.stringify({ meses, mesAtivoId, listaAtivaId, carteiras });
+      const blob = new Blob([raw], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const hoje = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `compras-backup-${hoje}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importarBackup(arquivo) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data || !Array.isArray(data.meses)) {
+            alert('Arquivo de backup inválido.');
+            return;
+          }
+          meses = data.meses;
+          mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
+          const mes = getMesAtivo();
+          if (mes && mes.listas.length > 0) {
+            listaAtivaId = data.listaAtivaId || mes.listas[0].id;
+          } else {
+            listaAtivaId = null;
+          }
+
+          if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
+            carteiras = data.carteiras;
+          } else {
+            carteiras = inicializarCarteirasPadrao();
+          }
+
+          salvarEstado();
+          atualizarSelectMeses();
+          atualizarSelectListas();
+          atualizarSelectCarteiras();
+          atualizarResumoCarteirasChips();
+          carregarListaNaUI();
+          alert('Backup importado com sucesso!');
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao ler o arquivo de backup.');
+        }
+      };
+      reader.readAsText(arquivo, 'utf-8');
+    }
+
+    btnExportarBackup.addEventListener('click', () => {
+      exportarBackup();
     });
 
-    inputNovaCarteiraNome.addEventListener('keypress', e => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        adicionarCarteira();
-      }
+    btnImportarBackup.addEventListener('click', () => {
+      inputImportarBackup.click();
     });
 
-    btnExportarBackup.addEventListener('click', () => exportarBackup());
-    btnImportarBackup.addEventListener('click', () => inputImportarBackup.click());
     inputImportarBackup.addEventListener('change', () => {
-      const arq = inputImportarBackup.files[0];
-      if (!arq) return;
-      importarBackup(arq);
+      const arquivo = inputImportarBackup.files[0];
+      if (!arquivo) return;
+      importarBackup(arquivo);
       inputImportarBackup.value = '';
     });
 
-    // Modal edição
-    btnCancelarEdicao.addEventListener('click', () => fecharEditor());
-    btnSalvarEdicao.addEventListener('click', () => {
-      if (!itemEditando) return;
-      const prod = editProduto.value.trim();
-      const cat = editCategoria.value.trim();
-      const qtd = parseFloat(String(editQuantidade.value).replace(',', '.'));
-      const und = editUnidade.value;
-      const preco = parseFloat(String(editPreco.value).replace(',', '.'));
-      const carteiraId = editCarteira.value || null;
-      if (!prod || !qtd || qtd <= 0 || !preco || preco <= 0) {
-        return alert('Preencha os campos corretamente.');
-      }
-      const totalItem = und === 'g'
-        ? (qtd / 1000) * preco
-        : qtd * preco;
-      itemEditando.produto = prod;
-      itemEditando.categoria = cat;
-      itemEditando.quantidade = qtd;
-      itemEditando.unidade = und;
-      itemEditando.preco = preco;
-      itemEditando.totalItem = totalItem;
-      itemEditando.carteiraId = carteiraId;
-      renderizarTabela();
-      atualizarResumo();
-      fecharEditor();
-    });
-
-    modalEdicao.addEventListener('click', e => {
-      if (e.target === modalEdicao) fecharEditor();
-    });
-
-    // Auth buttons
-    btnCadastrar.addEventListener('click', e => {
-      e.preventDefault();
-      cadastrarUsuario();
-    });
-
-    btnEntrar.addEventListener('click', e => {
-      e.preventDefault();
-      entrarUsuario();
-    });
-
-    btnSair.addEventListener('click', e => {
-      e.preventDefault();
-      sairUsuario();
-    });
-
-    // ================== INICIALIZAÇÃO GLOBAL ==================
-    (async function init() {
-      inicializarListaProdutos();
-
-      if (CONFIG.useSupabase && supabaseClient) {
-        const { data } = await supabaseClient.auth.getSession();
-        if (data.session && data.session.user) {
-          usuarioAtual = data.session.user;
-          authStatus.textContent = 'Sessão restaurada.';
-          await aposLogin();
-          return;
-        } else {
-          authContainer.style.display = 'block';
-          appContainer.style.display = 'none';
-          return;
-        }
-      }
-
-      // modo local (sem Supabase)
-      authStatus.textContent = 'Modo local: os dados ficam apenas neste navegador.';
-      btnCadastrar.style.display = 'none';
-      btnEntrar.style.display = 'none';
-      btnSair.style.display = 'none';
-      authEmail.style.display = 'none';
-      authSenha.style.display = 'none';
-
-      authContainer.style.display = 'none';
-      appContainer.style.display = 'block';
-
-      carregarEstadoLocal();
-      atualizarSelectMeses();
-      atualizarSelectListas();
-      carteiras = carteiras && carteiras.length ? carteiras : inicializarCarteirasPadrao();
-      atualizarSelectCarteiras();
-      atualizarResumoCarteirasChips();
-      carregarListaNaUI();
-    })();
-  })();
+    // ----- INICIALIZAÇÃO -----
+    inicializarListaProdutos();
+    carregarEstado();
+    atualizarSelectMeses();
+    atualizarSelectListas();
+    atualizarSelectCarteiras();
+    atualizarResumoCarteirasChips();
+    carregarListaNaUI();
   </script>
 </body>
 </html>
