@@ -53,9 +53,8 @@ const produtosSugeridos = [
   { nome: 'Desodorante', categoria: 'Higiene' }
 ];
 
-// ----- ESTADO: MESES, LISTAS, CARTEIRAS -----
+// ----- ESTADO GLOBAL -----
 const STORAGE_KEY = 'controleComprasMeses_v1';
-
 let meses = [];
 let mesAtivoId = null;
 let listaAtivaId = null;
@@ -270,7 +269,7 @@ function carregarEstado() {
   }
 }
 
-// ----- AUTOCOMPLETE PRODUTO -> CATEGORIA -----
+// ----- AUTOCOMPLETE PRODUTO → CATEGORIA (AJUSTADO) -----
 function inicializarListaProdutos() {
   datalistProdutos.innerHTML = '';
   produtosSugeridos.forEach(p => {
@@ -280,37 +279,51 @@ function inicializarListaProdutos() {
   });
 }
 
-function sugerirCategoriaParaProduto(nomeProduto) {
+// >>> AQUI o ajuste: atualiza SEMPRE a categoria quando o produto bate com a lista
+function atualizarCategoriaPeloProduto() {
+  const nomeProduto = (inputProduto.value || '').trim().toLowerCase();
   if (!nomeProduto) return;
-  const nome = nomeProduto.trim().toLowerCase();
-  if (!nome) return;
-  const encontrado = produtosSugeridos.find(p => p.nome.toLowerCase() === nome);
-  if (encontrado && !inputCategoria.value.trim()) {
+
+  // tenta match exato (ignorando caixa)
+  let encontrado = produtosSugeridos.find(
+    p => p.nome.toLowerCase() === nomeProduto
+  );
+
+  // se não achar exato, tenta incluir (para ajudar na digitação)
+  if (!encontrado) {
+    encontrado = produtosSugeridos.find(
+      p => p.nome.toLowerCase().includes(nomeProduto)
+    );
+  }
+
+  if (encontrado) {
+    // agora SEM condição: sempre atualiza categoria
     inputCategoria.value = encontrado.categoria;
   }
 }
 
-inputProduto.addEventListener('change', () => {
-  sugerirCategoriaParaProduto(inputProduto.value);
-});
-inputProduto.addEventListener('blur', () => {
-  sugerirCategoriaParaProduto(inputProduto.value);
-});
+// usamos "input" (pega digitação e seleção do datalist)
+inputProduto.addEventListener('input', atualizarCategoriaPeloProduto);
+// opcional: reforço em blur
+inputProduto.addEventListener('blur', atualizarCategoriaPeloProduto);
 
-// ----- CARTEIRAS: UI -----
+// ----- CARTEIRAS -----
 function atualizarSelectCarteiras() {
   selectCarteiraItem.innerHTML = '';
   editCarteira.innerHTML = '';
-
-  const optNenhuma = document.createElement('option');
-  optNenhuma.value = '';
-  optNenhuma.textContent = 'Selecione...';
-  selectCarteiraItem.appendChild(optNenhuma);
 
   const optNenhumaEdit = document.createElement('option');
   optNenhumaEdit.value = '';
   optNenhumaEdit.textContent = 'Sem carteira';
   editCarteira.appendChild(optNenhumaEdit);
+
+  if (carteiras.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'Sem carteiras';
+    selectCarteiraItem.appendChild(opt);
+    return;
+  }
 
   carteiras.forEach(c => {
     const opt = document.createElement('option');
@@ -330,7 +343,7 @@ function atualizarResumoCarteirasChips() {
   if (carteiras.length === 0) {
     const span = document.createElement('span');
     span.textContent = 'Nenhuma carteira cadastrada.';
-    span.classList.add('helper-text');
+    span.classList.add('muted');
     listaCarteirasResumo.appendChild(span);
     return;
   }
@@ -480,16 +493,18 @@ function renderizarTabela() {
 
     const btnEditar = document.createElement('button');
     btnEditar.textContent = 'Editar';
-    btnEditar.classList.add('btn', 'btn-outline', 'btn-sm');
-    btnEditar.style.marginRight = '6px';
+    btnEditar.classList.add('btn', 'btn-secondary');
+    btnEditar.style.padding = '4px 8px';
+    btnEditar.style.fontSize = '0.8rem';
+    btnEditar.style.marginRight = '4px';
     btnEditar.addEventListener('click', () => abrirEditor(item.id));
     tdAcao.appendChild(btnEditar);
 
     const btnRemover = document.createElement('button');
     btnRemover.textContent = 'Excluir';
-    btnRemover.classList.add('btn', 'btn-sm');
-    btnRemover.style.background = '#ef4444';
-    btnRemover.style.color = '#ffffff';
+    btnRemover.classList.add('btn', 'btn-outline');
+    btnRemover.style.padding = '4px 8px';
+    btnRemover.style.fontSize = '0.8rem';
     btnRemover.addEventListener('click', () => removerItem(item.id));
     tdAcao.appendChild(btnRemover);
 
@@ -542,7 +557,7 @@ function atualizarResumo() {
   );
   qtdCategoriasSpan.textContent = itens.length === 0 ? 0 : categoriasSet.size;
 
-  // Orçamento da lista
+  // orçamento
   if (lista.usarOrcamento && lista.valorOrcamento !== '') {
     const orcamento = parseFloat(String(lista.valorOrcamento).replace(',', '.')) || 0;
     if (orcamento > 0) {
@@ -576,7 +591,7 @@ function atualizarResumo() {
   salvarEstado();
 }
 
-// ----- GRÁFICOS DA LISTA ATUAL -----
+// ----- GRÁFICOS DA LISTA -----
 function atualizarGraficos() {
   const lista = getListaAtiva();
   const itens = lista ? (lista.itens || []) : [];
@@ -602,7 +617,8 @@ function atualizarGraficos() {
     options: {
       plugins: {
         legend: {
-          position: 'bottom'
+          position: 'bottom',
+          labels: { color: '#111827', font: { size: 11 } }
         },
         tooltip: {
           callbacks: {
@@ -634,9 +650,10 @@ function atualizarGraficos() {
     },
     options: {
       scales: {
-        x: { ticks: { font: { size: 11 } } },
+        x: { ticks: { color: '#111827', font: { size: 11 } } },
         y: {
           ticks: {
+            color: '#111827',
             font: { size: 11 },
             callback: (value) => formatarMoeda(value)
           }
@@ -654,13 +671,12 @@ function atualizarGraficos() {
   });
 }
 
-// ----- GRÁFICO GERAL POR MÊS E POR CARTEIRA -----
+// ----- GRÁFICOS GERAIS (MÊS + CARTEIRA) -----
 function atualizarGraficosGerais() {
   const labelsMes = [];
   const valoresMes = [];
   let totalGeral = 0;
   let qtdListasTotais = 0;
-
   const totaisCarteiras = {}; // idCarteira -> valor
 
   meses.forEach(m => {
@@ -699,7 +715,7 @@ function atualizarGraficosGerais() {
     mesTopValorSpan.textContent = 'R$ 0,00';
   }
 
-  // Gráfico por mês
+  // gráfico por mês
   const ctxMes = document.getElementById('chartTotaisMeses').getContext('2d');
   if (chartTotaisMeses) chartTotaisMeses.destroy();
   chartTotaisMeses = new Chart(ctxMes, {
@@ -710,9 +726,10 @@ function atualizarGraficosGerais() {
     },
     options: {
       scales: {
-        x: { ticks: { font: { size: 11 } } },
+        x: { ticks: { color: '#111827', font: { size: 11 } } },
         y: {
           ticks: {
+            color: '#111827',
             font: { size: 11 },
             callback: (value) => formatarMoeda(value)
           }
@@ -729,7 +746,7 @@ function atualizarGraficosGerais() {
     }
   });
 
-  // Gráfico por carteira
+  // gráfico por carteira
   const labelsCarteiras = [];
   const valoresCarteiras = [];
 
@@ -752,9 +769,10 @@ function atualizarGraficosGerais() {
     },
     options: {
       scales: {
-        x: { ticks: { font: { size: 11 } } },
+        x: { ticks: { color: '#111827', font: { size: 11 } } },
         y: {
           ticks: {
+            color: '#111827',
             font: { size: 11 },
             callback: (value) => formatarMoeda(value)
           }
@@ -772,7 +790,7 @@ function atualizarGraficosGerais() {
   });
 }
 
-// ----- AÇÕES (ITENS) -----
+// ----- AÇÕES: ITENS -----
 function adicionarItem() {
   const lista = getListaAtiva();
   if (!lista) return;
@@ -876,12 +894,14 @@ function abrirEditor(id) {
   optNenhuma.value = '';
   optNenhuma.textContent = 'Sem carteira';
   editCarteira.appendChild(optNenhuma);
+
   carteiras.forEach(c => {
     const opt = document.createElement('option');
     opt.value = c.id;
     opt.textContent = c.nome;
     editCarteira.appendChild(opt);
   });
+
   editCarteira.value = item.carteiraId || '';
 
   modalEdicao.style.display = 'flex';
@@ -930,7 +950,7 @@ modalEdicao.addEventListener('click', (e) => {
   if (e.target === modalEdicao) fecharEditor();
 });
 
-// ----- EVENTOS: ORÇAMENTO, LISTAS, MESES -----
+// ----- EVENTOS GERAIS -----
 usarOrcamento.addEventListener('change', () => {
   const lista = getListaAtiva();
   if (!lista) return;
@@ -985,7 +1005,7 @@ btnNovoMes.addEventListener('click', () => {
   const ano = match[2];
   const id = `${ano}-${mes}`;
   if (meses.some(m => m.id === id)) {
-    alert('Esse mês já existe. Selecione no combobox.');
+    alert('Esse mês já existe. Selecione no campo de mês.');
     return;
   }
 
@@ -1051,7 +1071,7 @@ selectLista.addEventListener('change', () => {
   salvarEstado();
 });
 
-// ----- BACKUP: EXPORTAR / IMPORTAR -----
+// ----- BACKUP -----
 function exportarBackup() {
   salvarEstado();
   const raw = localStorage.getItem(STORAGE_KEY) ||
