@@ -1,0 +1,524 @@
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* HEADER */
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: #111827;
+}
+
+.app-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* LAYOUT */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.col-sidebar,
+.col-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* CARD */
+
+.card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #111827;
+}
+
+.section-title .icon {
+  font-size: 1.1rem;
+}
+
+/* FORM / CAMPOS */
+
+.form-row {
+  margin-bottom: 10px;
+}
+
+.inline-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.label {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.input-select,
+.input-text,
+.input-number {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  color: #111827;
+  width: 100%;
+}
+
+.input-select:focus,
+.input-text:focus,
+.input-number:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+}
+
+.input-text::placeholder,
+.input-number::placeholder {
+  color: #9ca3af;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+/* BUTTONS */
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-outline {
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-outline:hover {
+  background: #f9fafb;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+/* FORM GRID ITENS */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 2.5fr 1.8fr 1.6fr 1.1fr 1.1fr 1.4fr 1.2fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.field .label {
+  margin-bottom: 2px;
+}
+
+.field-btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* TAGS / CHIPS */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.tag-default {
+  background: #f3f4f6;
+  color: #4b5563;
+  border-color: #e5e7eb;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f3f4ff;
+  font-size: 0.75rem;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+
+/* TABLE */
+
+.table-wrapper {
+  max-height: 280px;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 4px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table thead {
+  background: #f9fafb;
+}
+
+.table th,
+.table td {
+  padding: 8px 6px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table th {
+  text-align: left;
+  color: #6b7280;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table td {
+  color: #374151;
+}
+
+.right {
+  text-align: right;
+}
+
+.table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* HELPER / TEXTOS */
+
+.helper-text {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+/* RESUMO */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-grid-small-margin {
+  margin-bottom: 10px;
+}
+
+.summary-card {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.summary-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.summary-extra {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* ORÇAMENTO */
+
+.budget-bar-container {
+  margin-top: 12px;
+}
+
+.budget-label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.budget-bar-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.budget-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+  transition: width 0.3s ease;
+}
+
+.budget-status {
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+
+.budget-ok {
+  color: #16a34a;
+}
+
+.budget-alerta {
+  color: #ca8a04;
+}
+
+.budget-estourado {
+  color: #b91c1c;
+}
+
+/* CHARTS */
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.chart-card {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.chart-card h3 {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  color: #111827;
+}
+
+.chart-helper {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* BACKUP */
+
+.backup-section {
+  margin-top: 16px;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* MODAL */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-dialog {
+  background: #ffffff;
+  padding: 18px 18px 14px;
+  width: 360px;
+  max-width: 95%;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 24px 40px rgba(15, 23, 42, 0.25);
+}
+
+.modal-title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #111827;
+  font-weight: 600;
+}
+
+.modal-body {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.edit-label {
+  color: #6b7280;
+  font-size: 0.8rem;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.edit-input {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* RESPONSIVO */
+
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .charts-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 12px;
+  }
+
+  .summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "produto produto"
+      "categoria categoria"
+      "carteira carteira"
+      "qtde unidade"
+      "preco preco"
+      "btn btn";
+  }
+
+  .field-produto { grid-area: produto; }
+  .field-categoria { grid-area: categoria; }
+  .field-carteira { grid-area: carteira; }
+  .field-qtde { grid-area: qtde; }
+  .field-unidade { grid-area: unidade; }
+  .field-preco { grid-area: preco; }
+  .field-btn { grid-area: btn; }
+}
