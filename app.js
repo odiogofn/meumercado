@@ -1,13 +1,7 @@
-// ====== ESTADO GLOBAL ======
-const STORAGE_KEY = 'controleComprasMeses_v2';
+// ---------- DADOS BASE ----------
 
-let meses = [];       // [{id, nome, listas:[{id, nome, itens, proximoId, usarOrcamento, valorOrcamento}]}]
-let mesAtivoId = null;
-let listaAtivaId = null;
-let carteiras = [];   // [{id, nome}]
-let itemEditando = null;
+const STORAGE_KEY = 'controleCompras_tabs_v1';
 
-// Sugestões de produtos (produto -> categoria)
 const produtosSugeridos = [
   { nome: 'Arroz', categoria: 'Mercearia' },
   { nome: 'Feijão', categoria: 'Mercearia' },
@@ -62,41 +56,7 @@ const produtosSugeridos = [
   { nome: 'Desodorante', categoria: 'Higiene' }
 ];
 
-// Chart.js instances
-let chartQtdCategoria = null;
-let chartValorCategoria = null;
-let chartTotaisMeses = null;
-let chartCarteiras = null;
-
-// ====== HELPERS ======
-function idMesAtual() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-  return `${ano}-${mes}`;
-}
-
-function labelMes(id) {
-  const [ano, mes] = id.split('-');
-  return `${mes}/${ano}`;
-}
-
-function formatarMoeda(valor) {
-  return valor.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  });
-}
-
-function formatarQuantidade(qtd, unidade) {
-  if (unidade === 'g') return `${qtd.toFixed(0)} g`;
-  if (unidade === 'kg') return `${qtd.toFixed(3).replace('.', ',')} kg`;
-  if (unidade === 'L') return `${qtd.toFixed(3).replace('.', ',')} L`;
-  if (unidade === 'cx') return `${qtd.toFixed(2).replace('.', ',')} cx`;
-  return `${qtd.toFixed(2).replace('.', ',')} un`;
-}
-
-function inicializarCarteirasPadrao() {
+function carteirasPadrao() {
   return [
     { id: 'c1', nome: 'Dinheiro' },
     { id: 'c2', nome: 'Pix' },
@@ -107,14 +67,34 @@ function inicializarCarteirasPadrao() {
   ];
 }
 
+// Estado global
+let state = {
+  meses: [],       // [{id, nome, listas:[{id, nome, itens, proximoId, usarOrcamento, valorOrcamento}]}]
+  carteiras: [],   // [{id, nome}]
+  mesAtivoId: null,
+  listaAtivaId: null
+};
+
+// ---------- FUNÇÕES UTIL ----------
+
+function formatarMoeda(valor) {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function idMesAtual() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  return `${ano}-${mes}`;
+}
+
+function labelMes(idMes) {
+  const [ano, mes] = idMes.split('-');
+  return `${mes}/${ano}`;
+}
+
 function salvarEstado() {
-  const data = {
-    meses,
-    mesAtivoId,
-    listaAtivaId,
-    carteiras
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function carregarEstado() {
@@ -133,526 +113,528 @@ function carregarEstado() {
         valorOrcamento: ''
       }]
     };
-    meses = [mesPadrao];
-    mesAtivoId = id;
-    listaAtivaId = mesPadrao.listas[0].id;
-    carteiras = inicializarCarteirasPadrao();
+    state.meses = [mesPadrao];
+    state.carteiras = carteirasPadrao();
+    state.mesAtivoId = id;
+    state.listaAtivaId = 'lista-1';
     salvarEstado();
     return;
   }
 
   try {
     const data = JSON.parse(raw);
-    if (Array.isArray(data.meses) && data.meses.length > 0) {
-      meses = data.meses;
-      mesAtivoId = data.mesAtivoId || meses[0].id;
+    state.meses = Array.isArray(data.meses) ? data.meses : [];
+    state.carteiras = Array.isArray(data.carteiras) && data.carteiras.length > 0
+      ? data.carteiras
+      : carteirasPadrao();
+    state.mesAtivoId = data.mesAtivoId || (state.meses[0] && state.meses[0].id);
+    if (state.meses.length > 0) {
       const mes = getMesAtivo();
-      if (mes && mes.listas.length > 0) {
-        listaAtivaId = data.listaAtivaId || mes.listas[0].id;
-      } else {
-        listaAtivaId = null;
-      }
-    } else {
-      const id = idMesAtual();
-      const mesPadrao = {
-        id,
-        nome: labelMes(id),
-        listas: [{
-          id: 'lista-1',
-          nome: 'Lista padrão',
-          itens: [],
-          proximoId: 1,
-          usarOrcamento: false,
-          valorOrcamento: ''
-        }]
-      };
-      meses = [mesPadrao];
-      mesAtivoId = id;
-      listaAtivaId = mesPadrao.listas[0].id;
-    }
-
-    if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
-      carteiras = data.carteiras;
-    } else {
-      carteiras = inicializarCarteirasPadrao();
+      state.listaAtivaId = data.listaAtivaId || (mes && mes.listas[0] && mes.listas[0].id);
     }
   } catch (e) {
-    console.error('Erro ao carregar estado:', e);
-    const id = idMesAtual();
-    const mesPadrao = {
-      id,
-      nome: labelMes(id),
-      listas: [{
-        id: 'lista-1',
-        nome: 'Lista padrão',
-        itens: [],
-        proximoId: 1,
-        usarOrcamento: false,
-        valorOrcamento: ''
-      }]
-    };
-    meses = [mesPadrao];
-    mesAtivoId = id;
-    listaAtivaId = mesPadrao.listas[0].id;
-    carteiras = inicializarCarteirasPadrao();
-    salvarEstado();
+    console.error('Erro ao carregar estado', e);
+    localStorage.removeItem(STORAGE_KEY);
+    carregarEstado();
   }
 }
 
 function getMesAtivo() {
-  return meses.find(m => m.id === mesAtivoId) || null;
+  return state.meses.find(m => m.id === state.mesAtivoId) || null;
 }
 
 function getListaAtiva() {
   const mes = getMesAtivo();
   if (!mes) return null;
-  return mes.listas.find(l => l.id === listaAtivaId) || null;
+  return mes.listas.find(l => l.id === state.listaAtivaId) || null;
 }
 
 function nomeCarteiraPorId(id) {
-  const c = carteiras.find(x => x.id === id);
+  const c = state.carteiras.find(x => x.id === id);
   return c ? c.nome : 'Sem carteira';
 }
 
-// ====== DOM READY ======
-document.addEventListener('DOMContentLoaded', () => {
-  // Tabs
-  const tabButtons = document.querySelectorAll('.tab-button');
-  const tabContents = document.querySelectorAll('.tab-content');
+// ---------- DOM ELEMENTS ----------
 
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tabId = btn.dataset.tab;
+// Abas
+const tabButtons = document.querySelectorAll('.tab-button');
+const tabContents = document.querySelectorAll('.tab-content');
 
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabContents.forEach(c => c.classList.remove('active'));
+// Cadastro - Meses
+const inputMesNovo = document.getElementById('mesNovo');
+const btnAdicionarMes = document.getElementById('btnAdicionarMes');
+const tbodyMesesCadastro = document.getElementById('tabelaMesesCadastro');
 
-      btn.classList.add('active');
-      document.getElementById(`tab-${tabId}`).classList.add('active');
+// Cadastro - Listas
+const selectMesParaLista = document.getElementById('mesParaLista');
+const inputNomeListaNova = document.getElementById('nomeListaNova');
+const btnAdicionarLista = document.getElementById('btnAdicionarLista');
+const tbodyListasCadastro = document.getElementById('tabelaListasCadastro');
 
-      // Ao trocar de aba, atualiza resumos/gráficos
-      if (tabId === 'resumo') {
-        atualizarTelaResumo();
+// Cadastro - Carteiras
+const inputNovaCarteiraNome = document.getElementById('novaCarteiraNome');
+const btnAdicionarCarteira = document.getElementById('btnAdicionarCarteira');
+const divListaCarteiras = document.getElementById('listaCarteiras');
+
+// Comprando - Config
+const selectMesCompra = document.getElementById('mesCompra');
+const selectListaCompra = document.getElementById('listaCompra');
+const checkboxUsarOrcamento = document.getElementById('usarOrcamento');
+const inputValorOrcamento = document.getElementById('valorOrcamento');
+const divOrcamentoStatus = document.getElementById('orcamentoStatus');
+
+// Comprando - Itens
+const inputProduto = document.getElementById('produto');
+const inputCategoria = document.getElementById('categoria');
+const inputQuantidade = document.getElementById('quantidade');
+const selectUnidade = document.getElementById('unidade');
+const inputPreco = document.getElementById('preco');
+const selectCarteiraItem = document.getElementById('carteiraItem');
+const btnAdicionarItem = document.getElementById('btnAdicionarItem');
+const btnLimparLista = document.getElementById('btnLimparLista');
+const datalistProdutos = document.getElementById('listaProdutos');
+
+// Resumo
+const selectMesResumo = document.getElementById('mesResumo');
+const selectListaResumo = document.getElementById('listaResumo');
+const spanResumoTotalLista = document.getElementById('resumoTotalLista');
+const spanResumoQtdItens = document.getElementById('resumoQtdItens');
+const spanResumoTicketMedio = document.getElementById('resumoTicketMedio');
+const spanResumoCategorias = document.getElementById('resumoCategorias');
+const tbodyItensResumo = document.getElementById('tabelaItensResumo');
+
+// Gráficos
+let chartQtdCategoria = null;
+let chartValorCategoria = null;
+const canvasQtdCategoria = document.getElementById('chartQtdCategoria');
+const canvasValorCategoria = document.getElementById('chartValorCategoria');
+
+// ---------- ABAS ----------
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabName = btn.dataset.tab;
+
+    tabButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    tabContents.forEach(c => {
+      if (c.id === `tab-${tabName}`) {
+        c.classList.add('active');
+      } else {
+        c.classList.remove('active');
       }
     });
-  });
 
-  // Inicializar dados
-  carregarEstado();
-  inicializarAutocompleteProdutos();
-  inicializarUI();
+    if (tabName === 'cadastro') {
+      renderCadastro();
+    } else if (tabName === 'comprando') {
+      syncSeletoresCompraComEstado();
+      atualizarOrcamentoStatus();
+    } else if (tabName === 'resumo') {
+      syncSeletoresResumoComEstado();
+      atualizarResumoEDesenharGraficos();
+    }
+  });
 });
 
-// ====== UI: AUTOCOMPLETE (PRODUTO -> CATEGORIA) ======
-function inicializarAutocompleteProdutos() {
-  const datalistProdutos = document.getElementById('listaProdutos');
+// ---------- INICIALIZAÇÃO AUTOCOMPLETE PRODUTO ----------
+
+function inicializarDatalistProdutos() {
   datalistProdutos.innerHTML = '';
   produtosSugeridos.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.nome;
     datalistProdutos.appendChild(opt);
   });
+}
 
-  const inputProduto = document.getElementById('produto');
-  const inputCategoria = document.getElementById('categoria');
+// Categoria deve atualizar ao selecionar produto
+function atualizarCategoriaPeloProduto(nomeProduto) {
+  if (!nomeProduto) return;
+  const nome = nomeProduto.trim().toLowerCase();
+  if (!nome) return;
 
-  function sugerirCategoria() {
-    const texto = inputProduto.value.trim().toLowerCase();
-    if (!texto) return;
-    // Tenta match exato primeiro
-    let encontrado = produtosSugeridos.find(
-      p => p.nome.toLowerCase() === texto
-    );
-    // Se não achar, tenta começa com
-    if (!encontrado) {
-      const candidatos = produtosSugeridos.filter(
-        p => p.nome.toLowerCase().startsWith(texto)
-      );
-      if (candidatos.length === 1) {
-        encontrado = candidatos[0];
-      }
-    }
-    if (encontrado && !inputCategoria.value.trim()) {
-      inputCategoria.value = encontrado.categoria;
-    }
+  const encontrado = produtosSugeridos.find(
+    p => p.nome.toLowerCase() === nome
+  );
+  if (encontrado) {
+    // se já tiver algo em categoria, vamos sobrescrever
+    inputCategoria.value = encontrado.categoria;
   }
-
-  // BUG AJUSTADO: usamos 'input' e 'change' para garantir que a categoria atualize
-  inputProduto.addEventListener('input', sugerirCategoria);
-  inputProduto.addEventListener('change', sugerirCategoria);
-  inputProduto.addEventListener('blur', sugerirCategoria);
 }
 
-// ====== UI INICIAL ======
-function inicializarUI() {
-  // Seletores de mês
-  atualizarSelectMeses();
+inputProduto.addEventListener('input', () => {
+  atualizarCategoriaPeloProduto(inputProduto.value);
+});
 
-  // Seletores de listas (dependem do mês ativo)
-  atualizarSelectListas();
+inputProduto.addEventListener('change', () => {
+  atualizarCategoriaPeloProduto(inputProduto.value);
+});
 
-  // Carteiras
-  atualizarSelectCarteiras();
-  atualizarChipsCarteiras();
+inputProduto.addEventListener('blur', () => {
+  atualizarCategoriaPeloProduto(inputProduto.value);
+});
 
-  // Eventos de cadastro de meses/listas/carteiras
-  configurarEventosCadastro();
+// ---------- RENDER CADASTRO ----------
 
-  // Eventos da aba Comprando
-  configurarEventosComprando();
-
-  // Eventos resumo, backup e edição
-  configurarEventosResumo();
-  configurarEventosModal();
-
-  // Carregar visão inicial (comprando/resumo)
-  atualizarTelaComprando();
-  atualizarTelaResumo();
+function renderCadastro() {
+  renderTabelaMesesCadastro();
+  renderSelecaoMesParaLista();
+  renderTabelaListasCadastro();
+  renderCarteirasCadastro();
 }
 
-// ====== SELECTS DE MÊS / LISTA (SINCRONIZADOS NAS 3 ABAS) ======
-function atualizarSelectMeses() {
-  const selectsMes = [
-    document.getElementById('selectMesCadastro'),
-    document.getElementById('selectMesListas'),
-    document.getElementById('selectMesComprando'),
-    document.getElementById('selectMesResumo')
-  ];
+function renderTabelaMesesCadastro() {
+  tbodyMesesCadastro.innerHTML = '';
 
-  selectsMes.forEach(sel => {
-    if (!sel) return;
-    sel.innerHTML = '';
-    meses.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.nome || labelMes(m.id);
-      if (m.id === mesAtivoId) opt.selected = true;
-      sel.appendChild(opt);
+  state.meses.forEach(m => {
+    let totalMes = 0;
+    (m.listas || []).forEach(l => {
+      (l.itens || []).forEach(item => {
+        totalMes += item.totalItem;
+      });
+    });
+
+    const tr = document.createElement('tr');
+    const tdMes = document.createElement('td');
+    tdMes.textContent = m.nome || labelMes(m.id);
+
+    const tdListas = document.createElement('td');
+    tdListas.textContent = m.listas ? m.listas.length : 0;
+
+    const tdTotal = document.createElement('td');
+    tdTotal.textContent = formatarMoeda(totalMes);
+
+    const tdAcoes = document.createElement('td');
+    const btnUsar = document.createElement('button');
+    btnUsar.className = 'btn ghost';
+    btnUsar.textContent = 'Definir como mês ativo';
+    btnUsar.addEventListener('click', () => {
+      state.mesAtivoId = m.id;
+      const listaPadrao = m.listas && m.listas[0] ? m.listas[0].id : null;
+      state.listaAtivaId = listaPadrao;
+      salvarEstado();
+      renderCadastro();
+    });
+    tdAcoes.appendChild(btnUsar);
+
+    tr.appendChild(tdMes);
+    tr.appendChild(tdListas);
+    tr.appendChild(tdTotal);
+    tr.appendChild(tdAcoes);
+    tbodyMesesCadastro.appendChild(tr);
+  });
+}
+
+function renderSelecaoMesParaLista() {
+  selectMesParaLista.innerHTML = '';
+  state.meses.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.nome || labelMes(m.id);
+    if (m.id === state.mesAtivoId) opt.selected = true;
+    selectMesParaLista.appendChild(opt);
+  });
+}
+
+function renderTabelaListasCadastro() {
+  tbodyListasCadastro.innerHTML = '';
+
+  state.meses.forEach(m => {
+    (m.listas || []).forEach(l => {
+      const tr = document.createElement('tr');
+
+      const tdLista = document.createElement('td');
+      tdLista.textContent = l.nome;
+
+      const tdMes = document.createElement('td');
+      tdMes.textContent = m.nome || labelMes(m.id);
+
+      const tdItens = document.createElement('td');
+      tdItens.textContent = l.itens ? l.itens.length : 0;
+
+      const tdAtiva = document.createElement('td');
+      const btnAtivar = document.createElement('button');
+      btnAtivar.className = 'btn ghost';
+      btnAtivar.textContent = 'Usar nesta compra';
+      btnAtivar.addEventListener('click', () => {
+        state.mesAtivoId = m.id;
+        state.listaAtivaId = l.id;
+        salvarEstado();
+        renderCadastro();
+      });
+      if (state.mesAtivoId === m.id && state.listaAtivaId === l.id) {
+        btnAtivar.textContent = 'Lista ativa';
+        btnAtivar.disabled = true;
+      }
+      tdAtiva.appendChild(btnAtivar);
+
+      tr.appendChild(tdLista);
+      tr.appendChild(tdMes);
+      tr.appendChild(tdItens);
+      tr.appendChild(tdAtiva);
+      tbodyListasCadastro.appendChild(tr);
     });
   });
 }
 
-function atualizarSelectListas() {
-  const mes = getMesAtivo();
-  const selectsLista = [
-    document.getElementById('selectListaCadastro'),
-    document.getElementById('selectListaComprando'),
-    document.getElementById('selectListaResumo')
-  ];
-
-  selectsLista.forEach(sel => {
-    if (!sel) return;
-    sel.innerHTML = '';
-    if (!mes || !Array.isArray(mes.listas) || mes.listas.length === 0) {
-      listaAtivaId = null;
-      return;
-    }
-    mes.listas.forEach(l => {
-      const opt = document.createElement('option');
-      opt.value = l.id;
-      opt.textContent = l.nome;
-      if (l.id === listaAtivaId) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    if (!listaAtivaId) {
-      listaAtivaId = mes.listas[0].id;
-    }
-  });
-}
-
-// ====== CARTEIRAS (UI) ======
-function atualizarSelectCarteiras() {
-  const selItem = document.getElementById('carteiraItem');
-  const selEdit = document.getElementById('editCarteira');
-
-  const preencher = (select) => {
-    select.innerHTML = '';
-    const optNenhuma = document.createElement('option');
-    optNenhuma.value = '';
-    optNenhuma.textContent = 'Sem carteira';
-    select.appendChild(optNenhuma);
-
-    carteiras.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.nome;
-      select.appendChild(opt);
-    });
-  };
-
-  preencher(selItem);
-  preencher(selEdit);
-}
-
-function atualizarChipsCarteiras() {
-  const cont = document.getElementById('listaCarteirasResumo');
-  cont.innerHTML = '';
-  if (!carteiras.length) {
+function renderCarteirasCadastro() {
+  divListaCarteiras.innerHTML = '';
+  if (!state.carteiras || state.carteiras.length === 0) {
     const span = document.createElement('span');
     span.textContent = 'Nenhuma carteira cadastrada.';
-    span.classList.add('helper-text');
-    cont.appendChild(span);
+    span.style.fontSize = '0.85rem';
+    span.style.color = '#6b7280';
+    divListaCarteiras.appendChild(span);
     return;
   }
-  carteiras.forEach(c => {
-    const chip = document.createElement('div');
-    chip.classList.add('chip');
-    chip.textContent = c.nome;
-    cont.appendChild(chip);
+  state.carteiras.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'chip';
+    div.textContent = c.nome;
+    divListaCarteiras.appendChild(div);
   });
 }
 
-// ====== EVENTOS: CADASTRO (TAB 1) ======
-function configurarEventosCadastro() {
-  const novoMesInput = document.getElementById('novoMesInput');
-  const btnAdicionarMes = document.getElementById('btnAdicionarMes');
+// Eventos cadastro
 
-  const novaListaInput = document.getElementById('novaListaInput');
-  const btnAdicionarLista = document.getElementById('btnAdicionarLista');
+btnAdicionarMes.addEventListener('click', () => {
+  const valor = inputMesNovo.value.trim();
+  if (!valor) {
+    alert('Informe o mês no formato MM/AAAA.');
+    return;
+  }
+  const match = valor.match(/^(\d{2})\/(\d{4})$/);
+  if (!match) {
+    alert('Formato inválido. Use MM/AAAA, ex: 04/2026.');
+    return;
+  }
+  const mes = match[1];
+  const ano = match[2];
+  const id = `${ano}-${mes}`;
 
-  const selectMesCadastro = document.getElementById('selectMesCadastro');
-  const selectMesListas = document.getElementById('selectMesListas');
-  const selectListaCadastro = document.getElementById('selectListaCadastro');
+  if (state.meses.some(m => m.id === id)) {
+    alert('Esse mês já está cadastrado.');
+    return;
+  }
 
-  const inputNovaCarteiraNome = document.getElementById('novaCarteiraNome');
-  const btnAdicionarCarteira = document.getElementById('btnAdicionarCarteira');
-
-  // Escolher mês (Cadastro / Listas) sincroniza estado global
-  selectMesCadastro.addEventListener('change', (e) => {
-    mesAtivoId = e.target.value;
-    const mes = getMesAtivo();
-    if (mes && mes.listas.length > 0) {
-      listaAtivaId = mes.listas[0].id;
-    } else {
-      listaAtivaId = null;
-    }
-    atualizarSelectMeses();
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
-
-  selectMesListas.addEventListener('change', (e) => {
-    mesAtivoId = e.target.value;
-    const mes = getMesAtivo();
-    if (mes && mes.listas.length > 0) {
-      listaAtivaId = mes.listas[0].id;
-    } else {
-      listaAtivaId = null;
-    }
-    atualizarSelectMeses();
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
-
-  selectListaCadastro.addEventListener('change', (e) => {
-    listaAtivaId = e.target.value;
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
-
-  // Adicionar mês
-  btnAdicionarMes.addEventListener('click', () => {
-    const val = novoMesInput.value.trim();
-    if (!val) return;
-    const match = val.match(/^(\d{2})\/(\d{4})$/);
-    if (!match) {
-      alert('Informe o mês no formato MM/AAAA (ex: 03/2026).');
-      return;
-    }
-    const mes = match[1];
-    const ano = match[2];
-    const id = `${ano}-${mes}`;
-    if (meses.some(m => m.id === id)) {
-      alert('Esse mês já existe.');
-      return;
-    }
-    const novoMes = {
-      id,
-      nome: `${mes}/${ano}`,
-      listas: [{
-        id: 'lista-1',
-        nome: 'Lista padrão',
-        itens: [],
-        proximoId: 1,
-        usarOrcamento: false,
-        valorOrcamento: ''
-      }]
-    };
-    meses.push(novoMes);
-    mesAtivoId = id;
-    listaAtivaId = novoMes.listas[0].id;
-    novoMesInput.value = '';
-    atualizarSelectMeses();
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
-
-  // Adicionar lista
-  btnAdicionarLista.addEventListener('click', () => {
-    const nome = novaListaInput.value.trim();
-    if (!nome) return;
-    const mes = getMesAtivo();
-    if (!mes) return;
-    const nova = {
-      id: 'lista-' + Date.now(),
-      nome,
+  const novoMes = {
+    id,
+    nome: `${mes}/${ano}`,
+    listas: [{
+      id: 'lista-1',
+      nome: 'Lista padrão',
       itens: [],
       proximoId: 1,
       usarOrcamento: false,
       valorOrcamento: ''
-    };
-    mes.listas.push(nova);
-    listaAtivaId = nova.id;
-    novaListaInput.value = '';
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
+    }]
+  };
+  state.meses.push(novoMes);
+  state.mesAtivoId = id;
+  state.listaAtivaId = 'lista-1';
+  inputMesNovo.value = '';
+  salvarEstado();
+  renderCadastro();
+});
+
+btnAdicionarLista.addEventListener('click', () => {
+  const mesId = selectMesParaLista.value;
+  const nomeLista = inputNomeListaNova.value.trim();
+  if (!mesId || !nomeLista) {
+    alert('Selecione o mês e informe o nome da lista.');
+    return;
+  }
+  const mes = state.meses.find(m => m.id === mesId);
+  if (!mes) return;
+
+  const novaLista = {
+    id: 'lista-' + Date.now(),
+    nome: nomeLista,
+    itens: [],
+    proximoId: 1,
+    usarOrcamento: false,
+    valorOrcamento: ''
+  };
+
+  mes.listas.push(novaLista);
+  state.mesAtivoId = mesId;
+  state.listaAtivaId = novaLista.id;
+  inputNomeListaNova.value = '';
+  salvarEstado();
+  renderCadastro();
+});
+
+btnAdicionarCarteira.addEventListener('click', () => {
+  const nome = inputNovaCarteiraNome.value.trim();
+  if (!nome) {
+    alert('Informe o nome da carteira.');
+    return;
+  }
+  const nova = { id: 'c' + Date.now(), nome };
+  state.carteiras.push(nova);
+  inputNovaCarteiraNome.value = '';
+  salvarEstado();
+  renderCarteirasCadastro();
+  atualizarSeletoresCarteirasCompra();
+});
+
+// ---------- ABA COMPRANDO ----------
+
+function atualizarSeletoresMesListaCompra() {
+  // Mês
+  selectMesCompra.innerHTML = '';
+  state.meses.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.nome || labelMes(m.id);
+    if (m.id === state.mesAtivoId) opt.selected = true;
+    selectMesCompra.appendChild(opt);
   });
 
-  // Adicionar carteira
-  function addCarteira() {
-    const nome = inputNovaCarteiraNome.value.trim();
-    if (!nome) return;
-    const c = { id: 'c' + Date.now(), nome };
-    carteiras.push(c);
-    inputNovaCarteiraNome.value = '';
-    atualizarSelectCarteiras();
-    atualizarChipsCarteiras();
-    salvarEstado();
-  }
-
-  btnAdicionarCarteira.addEventListener('click', addCarteira);
-  inputNovaCarteiraNome.addEventListener('keypress', e => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addCarteira();
-    }
+  // Lista
+  selectListaCompra.innerHTML = '';
+  const mes = getMesAtivo();
+  if (!mes) return;
+  (mes.listas || []).forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = l.nome;
+    if (l.id === state.listaAtivaId) opt.selected = true;
+    selectListaCompra.appendChild(opt);
   });
 }
 
-// ====== EVENTOS: COMPRANDO (TAB 2) ======
-function configurarEventosComprando() {
-  const selectMesComprando = document.getElementById('selectMesComprando');
-  const selectListaComprando = document.getElementById('selectListaComprando');
-  const usarOrcamento = document.getElementById('usarOrcamento');
-  const valorOrcamentoInput = document.getElementById('valorOrcamento');
+function atualizarSeletoresCarteirasCompra() {
+  selectCarteiraItem.innerHTML = '';
 
-  const btnAdicionarItem = document.getElementById('btnAdicionarItem');
-  const btnLimparLista = document.getElementById('btnLimparLista');
-  const precoInput = document.getElementById('preco');
+  const optVazio = document.createElement('option');
+  optVazio.value = '';
+  optVazio.textContent = 'Selecione';
+  selectCarteiraItem.appendChild(optVazio);
 
-  // mudar mês na aba comprando
-  selectMesComprando.addEventListener('change', (e) => {
-    mesAtivoId = e.target.value;
-    const mes = getMesAtivo();
-    if (mes && mes.listas.length > 0) {
-      listaAtivaId = mes.listas[0].id;
-    } else {
-      listaAtivaId = null;
-    }
-    atualizarSelectMeses();
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
+  state.carteiras.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.nome;
+    selectCarteiraItem.appendChild(opt);
   });
+}
 
-  // mudar lista na aba comprando
-  selectListaComprando.addEventListener('change', (e) => {
-    listaAtivaId = e.target.value;
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
+function syncSeletoresCompraComEstado() {
+  atualizarSeletoresMesListaCompra();
+  atualizarSeletoresCarteirasCompra();
 
   // Orçamento
-  usarOrcamento.addEventListener('change', () => {
-    const lista = getListaAtiva();
-    if (!lista) return;
-    lista.usarOrcamento = usarOrcamento.checked;
-    if (!lista.usarOrcamento) {
-      lista.valorOrcamento = '';
-      valorOrcamentoInput.value = '';
-      valorOrcamentoInput.disabled = true;
-    } else {
-      valorOrcamentoInput.disabled = false;
-    }
-    salvarEstado();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-  });
-
-  valorOrcamentoInput.addEventListener('input', () => {
-    const lista = getListaAtiva();
-    if (!lista) return;
-    lista.valorOrcamento = valorOrcamentoInput.value;
-    salvarEstado();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-  });
-
-  // Adicionar item
-  btnAdicionarItem.addEventListener('click', (e) => {
-    e.preventDefault();
-    adicionarItemNaLista();
-  });
-
-  // Enter no campo preço
-  precoInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      adicionarItemNaLista();
-    }
-  });
-
-  // Limpar lista
-  btnLimparLista.addEventListener('click', () => {
-    const lista = getListaAtiva();
-    if (!lista) return;
-    if (!confirm(`Limpar todos os itens da lista "${lista.nome}"?`)) return;
-    lista.itens = [];
-    lista.proximoId = 1;
-    lista.usarOrcamento = false;
-    lista.valorOrcamento = '';
-    salvarEstado();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-  });
+  const lista = getListaAtiva();
+  if (lista) {
+    checkboxUsarOrcamento.checked = !!lista.usarOrcamento;
+    inputValorOrcamento.disabled = !lista.usarOrcamento;
+    inputValorOrcamento.value = lista.valorOrcamento || '';
+  } else {
+    checkboxUsarOrcamento.checked = false;
+    inputValorOrcamento.disabled = true;
+    inputValorOrcamento.value = '';
+  }
 }
 
-function adicionarItemNaLista() {
+// eventos seletores compra
+
+selectMesCompra.addEventListener('change', () => {
+  state.mesAtivoId = selectMesCompra.value;
+  const mes = getMesAtivo();
+  if (mes && mes.listas.length > 0) {
+    state.listaAtivaId = mes.listas[0].id;
+  } else {
+    state.listaAtivaId = null;
+  }
+  salvarEstado();
+  atualizarSeletoresMesListaCompra();
+  atualizarOrcamentoStatus();
+});
+
+selectListaCompra.addEventListener('change', () => {
+  state.listaAtivaId = selectListaCompra.value;
+  salvarEstado();
+  atualizarOrcamentoStatus();
+});
+
+checkboxUsarOrcamento.addEventListener('change', () => {
+  const lista = getListaAtiva();
+  if (!lista) return;
+  lista.usarOrcamento = checkboxUsarOrcamento.checked;
+  inputValorOrcamento.disabled = !checkboxUsarOrcamento.checked;
+  if (!checkboxUsarOrcamento.checked) {
+    lista.valorOrcamento = '';
+    inputValorOrcamento.value = '';
+  }
+  salvarEstado();
+  atualizarOrcamentoStatus();
+});
+
+inputValorOrcamento.addEventListener('input', () => {
+  const lista = getListaAtiva();
+  if (!lista) return;
+  lista.valorOrcamento = inputValorOrcamento.value;
+  salvarEstado();
+  atualizarOrcamentoStatus();
+});
+
+function calcularTotalLista(lista) {
+  if (!lista || !lista.itens) return 0;
+  return lista.itens.reduce((acc, i) => acc + i.totalItem, 0);
+}
+
+function atualizarOrcamentoStatus() {
   const lista = getListaAtiva();
   if (!lista) {
-    alert('Selecione um mês e uma lista para lançar os itens.');
+    divOrcamentoStatus.textContent = 'Nenhuma lista selecionada.';
     return;
   }
 
-  const produtoInput = document.getElementById('produto');
-  const categoriaInput = document.getElementById('categoria');
-  const carteiraSelect = document.getElementById('carteiraItem');
-  const quantidadeInput = document.getElementById('quantidade');
-  const unidadeSelect = document.getElementById('unidade');
-  const precoInput = document.getElementById('preco');
+  const total = calcularTotalLista(lista);
+  const usar = !!lista.usarOrcamento;
+  const valor = parseFloat(String(lista.valorOrcamento || '').replace(',', '.')) || 0;
 
-  const produto = produtoInput.value.trim();
-  const categoria = categoriaInput.value.trim();
-  const carteiraId = carteiraSelect.value || null;
-  const quantidade = parseFloat(String(quantidadeInput.value).replace(',', '.'));
-  const preco = parseFloat(String(precoInput.value).replace(',', '.'));
-  const unidade = unidadeSelect.value;
+  if (!usar || !valor) {
+    divOrcamentoStatus.textContent = `Total atual da lista: ${formatarMoeda(total)}.`;
+    return;
+  }
+
+  const diff = valor - total;
+  const perc = total / valor * 100;
+
+  if (diff > 0) {
+    divOrcamentoStatus.textContent =
+      `Total da lista: ${formatarMoeda(total)} (${perc.toFixed(1)}% do limite). Você ainda pode gastar ${formatarMoeda(diff)}.`;
+  } else if (diff === 0) {
+    divOrcamentoStatus.textContent =
+      `Total da lista: ${formatarMoeda(total)}. Você atingiu exatamente o limite definido.`;
+  } else {
+    divOrcamentoStatus.textContent =
+      `Total da lista: ${formatarMoeda(total)} (${perc.toFixed(1)}% do limite). Você ultrapassou o limite em ${formatarMoeda(Math.abs(diff))}.`;
+  }
+}
+
+// adicionar item
+
+btnAdicionarItem.addEventListener('click', () => {
+  const lista = getListaAtiva();
+  if (!lista) {
+    alert('Selecione um mês e uma lista primeiro (na aba Cadastro ou Comprando).');
+    return;
+  }
+
+  const produto = inputProduto.value.trim();
+  const categoria = inputCategoria.value.trim();
+  const quantidade = parseFloat(String(inputQuantidade.value).replace(',', '.'));
+  const unidade = selectUnidade.value;
+  const preco = parseFloat(String(inputPreco.value).replace(',', '.'));
+  const carteiraId = selectCarteiraItem.value || null;
 
   if (!produto) {
-    alert('Informe o nome do produto.');
+    alert('Informe o produto.');
     return;
   }
   if (isNaN(quantidade) || quantidade <= 0) {
@@ -664,11 +646,11 @@ function adicionarItemNaLista() {
     return;
   }
 
-  let total;
+  let totalItem;
   if (unidade === 'g') {
-    total = (quantidade / 1000) * preco;
+    totalItem = (quantidade / 1000) * preco;
   } else {
-    total = quantidade * preco;
+    totalItem = quantidade * preco;
   }
 
   const item = {
@@ -678,394 +660,189 @@ function adicionarItemNaLista() {
     quantidade,
     unidade,
     preco,
-    totalItem: total,
+    totalItem,
     carteiraId
   };
 
   lista.itens.push(item);
-
-  produtoInput.value = '';
-  categoriaInput.value = '';
-  quantidadeInput.value = '';
-  precoInput.value = '';
-  produtoInput.focus();
-
   salvarEstado();
-  atualizarTelaComprando();
-  atualizarTelaResumo();
-}
+  atualizarOrcamentoStatus();
 
-// Atualiza textos e orcamento barra na aba Comprando
-function atualizarTelaComprando() {
-  const lista = getListaAtiva();
-  const infoQuantidadeItens = document.getElementById('infoQuantidadeItens');
-  const usarOrcamento = document.getElementById('usarOrcamento');
-  const valorOrcamentoInput = document.getElementById('valorOrcamento');
-  const boxOrcamentoResumo = document.getElementById('boxOrcamentoResumo');
-  const orcamentoStatusLinha = document.getElementById('orcamentoStatusLinha');
-  const budgetBar = document.getElementById('budgetBar');
+  // limpa campos
+  inputProduto.value = '';
+  inputCategoria.value = '';
+  inputQuantidade.value = '';
+  inputPreco.value = '';
+  selectUnidade.value = 'un';
+  selectCarteiraItem.value = '';
 
-  if (!lista) {
-    infoQuantidadeItens.textContent = 'Nenhuma lista selecionada.';
-    usarOrcamento.checked = false;
-    valorOrcamentoInput.value = '';
-    valorOrcamentoInput.disabled = true;
-    boxOrcamentoResumo.classList.add('hidden');
-    return;
-  }
+  inputProduto.focus();
+});
 
-  const quantidadeItens = lista.itens.length;
-  if (quantidadeItens === 0) {
-    infoQuantidadeItens.textContent = 'Nenhum item lançado ainda.';
-  } else if (quantidadeItens === 1) {
-    infoQuantidadeItens.textContent = '1 item lançado.';
-  } else {
-    infoQuantidadeItens.textContent = `${quantidadeItens} itens lançados.`;
-  }
-
-  usarOrcamento.checked = !!lista.usarOrcamento;
-  valorOrcamentoInput.disabled = !lista.usarOrcamento;
-  valorOrcamentoInput.value = lista.valorOrcamento || '';
-
-  const totalLista = lista.itens.reduce((soma, i) => soma + i.totalItem, 0);
-
-  if (lista.usarOrcamento && lista.valorOrcamento) {
-    const orc = parseFloat(String(lista.valorOrcamento).replace(',', '.')) || 0;
-    if (orc > 0) {
-      const perc = Math.min(100, (totalLista / orc) * 100);
-      budgetBar.style.width = `${perc.toFixed(1)}%`;
-
-      const diff = orc - totalLista;
-      if (diff > 0) {
-        orcamentoStatusLinha.textContent =
-          `Total atual: ${formatarMoeda(totalLista)} | Limite: ${formatarMoeda(orc)} | Ainda pode gastar ${formatarMoeda(diff)}.`;
-      } else if (diff === 0) {
-        orcamentoStatusLinha.textContent =
-          `Total atual: ${formatarMoeda(totalLista)} | Você atingiu exatamente o limite definido.`;
-      } else {
-        orcamentoStatusLinha.textContent =
-          `Total atual: ${formatarMoeda(totalLista)} | Limite: ${formatarMoeda(orc)} | Ultrapassou em ${formatarMoeda(Math.abs(diff))}.`;
-      }
-      boxOrcamentoResumo.classList.remove('hidden');
-    } else {
-      boxOrcamentoResumo.classList.add('hidden');
-      budgetBar.style.width = '0%';
-    }
-  } else {
-    boxOrcamentoResumo.classList.add('hidden');
-    budgetBar.style.width = '0%';
-  }
-}
-
-// ====== EVENTOS: RESUMO / BACKUP / EDIÇÃO ======
-function configurarEventosResumo() {
-  const selectMesResumo = document.getElementById('selectMesResumo');
-  const selectListaResumo = document.getElementById('selectListaResumo');
-  const btnExportarBackup = document.getElementById('btnExportarBackup');
-  const btnImportarBackup = document.getElementById('btnImportarBackup');
-  const inputImportarBackup = document.getElementById('inputImportarBackup');
-
-  selectMesResumo.addEventListener('change', (e) => {
-    mesAtivoId = e.target.value;
-    const mes = getMesAtivo();
-    if (mes && mes.listas.length > 0) {
-      listaAtivaId = mes.listas[0].id;
-    } else {
-      listaAtivaId = null;
-    }
-    atualizarSelectMeses();
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
-
-  selectListaResumo.addEventListener('change', (e) => {
-    listaAtivaId = e.target.value;
-    atualizarSelectListas();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    salvarEstado();
-  });
-
-  // Backup
-  btnExportarBackup.addEventListener('click', () => {
-    salvarEstado();
-    const raw = localStorage.getItem(STORAGE_KEY);
-    const blob = new Blob([raw], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const hoje = new Date().toISOString().slice(0, 10);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `compras-backup-${hoje}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  btnImportarBackup.addEventListener('click', () => {
-    inputImportarBackup.click();
-  });
-
-  inputImportarBackup.addEventListener('change', () => {
-    const file = inputImportarBackup.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (!Array.isArray(data.meses)) {
-          alert('Backup inválido.');
-          return;
-        }
-        meses = data.meses;
-        mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
-        const mes = getMesAtivo();
-        if (mes && mes.listas.length > 0) {
-          listaAtivaId = data.listaAtivaId || mes.listas[0].id;
-        } else {
-          listaAtivaId = null;
-        }
-        if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
-          carteiras = data.carteiras;
-        } else {
-          carteiras = inicializarCarteirasPadrao();
-        }
-        salvarEstado();
-        atualizarSelectMeses();
-        atualizarSelectListas();
-        atualizarSelectCarteiras();
-        atualizarChipsCarteiras();
-        atualizarTelaComprando();
-        atualizarTelaResumo();
-        alert('Backup importado com sucesso.');
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao importar backup.');
-      }
-    };
-    reader.readAsText(file, 'utf-8');
-    inputImportarBackup.value = '';
-  });
-}
-
-// Modal edição
-function configurarEventosModal() {
-  const modal = document.getElementById('modalEdicao');
-  const btnCancelar = document.getElementById('btnCancelarEdicao');
-  const btnSalvar = document.getElementById('btnSalvarEdicao');
-
-  btnCancelar.addEventListener('click', () => {
-    modal.classList.add('hidden');
-    itemEditando = null;
-  });
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.add('hidden');
-      itemEditando = null;
-    }
-  });
-
-  btnSalvar.addEventListener('click', () => {
-    if (!itemEditando) return;
-    const prod = document.getElementById('editProduto').value.trim();
-    const cat = document.getElementById('editCategoria').value.trim();
-    const q = parseFloat(String(document.getElementById('editQuantidade').value).replace(',', '.'));
-    const u = document.getElementById('editUnidade').value;
-    const p = parseFloat(String(document.getElementById('editPreco').value).replace(',', '.'));
-    const carteiraId = document.getElementById('editCarteira').value || null;
-
-    if (!prod || isNaN(q) || q <= 0 || isNaN(p) || p <= 0) {
-      alert('Preencha os campos corretamente.');
-      return;
-    }
-
-    let total = u === 'g' ? (q / 1000) * p : q * p;
-
-    itemEditando.produto = prod;
-    itemEditando.categoria = cat;
-    itemEditando.quantidade = q;
-    itemEditando.unidade = u;
-    itemEditando.preco = p;
-    itemEditando.totalItem = total;
-    itemEditando.carteiraId = carteiraId;
-
-    salvarEstado();
-    atualizarTelaComprando();
-    atualizarTelaResumo();
-    modal.classList.add('hidden');
-    itemEditando = null;
-  });
-}
-
-// Abrir modal edição a partir da tabela
-function abrirEdicaoItem(idItem) {
+btnLimparLista.addEventListener('click', () => {
   const lista = getListaAtiva();
   if (!lista) return;
-  const item = lista.itens.find(i => i.id === idItem);
-  if (!item) return;
-  itemEditando = item;
+  if (!confirm(`Limpar todos os itens da lista "${lista.nome}"?`)) return;
 
-  document.getElementById('editProduto').value = item.produto;
-  document.getElementById('editCategoria').value = item.categoria || '';
-  document.getElementById('editQuantidade').value = item.quantidade;
-  document.getElementById('editUnidade').value = item.unidade;
-  document.getElementById('editPreco').value = item.preco;
-  document.getElementById('editCarteira').value = item.carteiraId || '';
+  lista.itens = [];
+  lista.proximoId = 1;
+  salvarEstado();
+  atualizarOrcamentoStatus();
+});
 
-  document.getElementById('modalEdicao').classList.remove('hidden');
+// ---------- ABA RESUMO ----------
+
+function atualizarSeletoresMesListaResumo() {
+  // Mês
+  selectMesResumo.innerHTML = '';
+  state.meses.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.nome || labelMes(m.id);
+    if (m.id === state.mesAtivoId) opt.selected = true;
+    selectMesResumo.appendChild(opt);
+  });
+
+  // Lista
+  selectListaResumo.innerHTML = '';
+  const mes = getMesAtivo();
+  if (!mes) return;
+  (mes.listas || []).forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.id;
+    opt.textContent = l.nome;
+    if (l.id === state.listaAtivaId) opt.selected = true;
+    selectListaResumo.appendChild(opt);
+  });
 }
 
-// ====== TELA RESUMO (TAB 3) ======
-function atualizarTelaResumo() {
-  atualizarTabelaResumo();
-  atualizarGraficosResumo();
+function syncSeletoresResumoComEstado() {
+  atualizarSeletoresMesListaResumo();
 }
 
-function atualizarTabelaResumo() {
-  const lista = getListaAtiva();
-  const tbody = document.getElementById('tabelaItensResumoBody');
-  const totalSpan = document.getElementById('totalListaResumo');
-  const qtdSpan = document.getElementById('qtdItensResumo');
-  const ticketSpan = document.getElementById('ticketMedioResumo');
-  const maiorSpan = document.getElementById('maiorItemResumo');
-  const maiorNomeSpan = document.getElementById('maiorItemNomeResumo');
-
-  tbody.innerHTML = '';
-
-  if (!lista) {
-    totalSpan.textContent = 'R$ 0,00';
-    qtdSpan.textContent = '0';
-    ticketSpan.textContent = 'R$ 0,00';
-    maiorSpan.textContent = 'R$ 0,00';
-    maiorNomeSpan.textContent = '–';
-    return;
+selectMesResumo.addEventListener('change', () => {
+  state.mesAtivoId = selectMesResumo.value;
+  const mes = getMesAtivo();
+  if (mes && mes.listas.length > 0) {
+    state.listaAtivaId = mes.listas[0].id;
+  } else {
+    state.listaAtivaId = null;
   }
+  salvarEstado();
+  atualizarSeletoresMesListaResumo();
+  atualizarResumoEDesenharGraficos();
+});
 
-  const itens = lista.itens;
-  itens.forEach((item, index) => {
+selectListaResumo.addEventListener('change', () => {
+  state.listaAtivaId = selectListaResumo.value;
+  salvarEstado();
+  atualizarResumoEDesenharGraficos();
+});
+
+function atualizarResumoEDesenharGraficos() {
+  const lista = getListaAtiva();
+  const itens = lista && lista.itens ? lista.itens : [];
+
+  // Resumo numérico
+  const total = itens.reduce((acc, i) => acc + i.totalItem, 0);
+  spanResumoTotalLista.textContent = formatarMoeda(total);
+  spanResumoQtdItens.textContent = itens.length;
+
+  const ticket = itens.length > 0 ? total / itens.length : 0;
+  spanResumoTicketMedio.textContent = formatarMoeda(ticket);
+
+  const categoriasSet = new Set(
+    itens.map(i => (i.categoria && i.categoria.trim()) ? i.categoria.trim() : 'Sem categoria')
+  );
+  spanResumoCategorias.textContent = itens.length === 0 ? 0 : categoriasSet.size;
+
+  // Tabela
+  tbodyItensResumo.innerHTML = '';
+  itens.forEach((item, idx) => {
     const tr = document.createElement('tr');
 
     const tdSeq = document.createElement('td');
-    tdSeq.textContent = index + 1;
+    tdSeq.textContent = idx + 1;
 
     const tdProd = document.createElement('td');
     tdProd.textContent = item.produto;
 
     const tdCat = document.createElement('td');
-    tdCat.textContent = item.categoria || '';
+    tdCat.textContent = item.categoria || 'Sem categoria';
 
     const tdCart = document.createElement('td');
     tdCart.textContent = item.carteiraId ? nomeCarteiraPorId(item.carteiraId) : 'Sem carteira';
 
     const tdQtd = document.createElement('td');
-    tdQtd.textContent = formatarQuantidade(item.quantidade, item.unidade);
+    tdQtd.textContent = `${item.quantidade} ${item.unidade}`;
 
-    const tdVlUn = document.createElement('td');
-    tdVlUn.textContent = formatarMoeda(item.preco);
+    const tdPreco = document.createElement('td');
+    tdPreco.textContent = formatarMoeda(item.preco);
 
-    const tdVlTot = document.createElement('td');
-    tdVlTot.textContent = formatarMoeda(item.totalItem);
-
-    const tdAcoes = document.createElement('td');
-    tdAcoes.classList.add('actions');
-
-    const btnEditar = document.createElement('button');
-    btnEditar.textContent = 'Editar';
-    btnEditar.className = 'btn secondary small';
-    btnEditar.addEventListener('click', () => abrirEdicaoItem(item.id));
-
-    const btnExcluir = document.createElement('button');
-    btnExcluir.textContent = 'Excluir';
-    btnExcluir.className = 'btn secondary small';
-    btnExcluir.style.marginLeft = '4px';
-    btnExcluir.addEventListener('click', () => {
-      if (!confirm('Remover este item?')) return;
-      lista.itens = lista.itens.filter(i => i.id !== item.id);
-      salvarEstado();
-      atualizarTelaComprando();
-      atualizarTelaResumo();
-    });
-
-    tdAcoes.appendChild(btnEditar);
-    tdAcoes.appendChild(btnExcluir);
+    const tdTotal = document.createElement('td');
+    tdTotal.textContent = formatarMoeda(item.totalItem);
 
     tr.appendChild(tdSeq);
     tr.appendChild(tdProd);
     tr.appendChild(tdCat);
     tr.appendChild(tdCart);
     tr.appendChild(tdQtd);
-    tr.appendChild(tdVlUn);
-    tr.appendChild(tdVlTot);
-    tr.appendChild(tdAcoes);
-
-    tbody.appendChild(tr);
+    tr.appendChild(tdPreco);
+    tr.appendChild(tdTotal);
+    tbodyItensResumo.appendChild(tr);
   });
 
-  const total = itens.reduce((s, i) => s + i.totalItem, 0);
-  const qtd = itens.length;
-  const ticket = qtd > 0 ? total / qtd : 0;
-
-  totalSpan.textContent = formatarMoeda(total);
-  qtdSpan.textContent = String(qtd);
-  ticketSpan.textContent = formatarMoeda(ticket);
-
-  if (qtd > 0) {
-    const maior = itens.reduce((acc, i) => i.totalItem > acc.totalItem ? i : acc, itens[0]);
-    maiorSpan.textContent = formatarMoeda(maior.totalItem);
-    maiorNomeSpan.textContent = maior.produto;
-  } else {
-    maiorSpan.textContent = 'R$ 0,00';
-    maiorNomeSpan.textContent = '–';
-  }
+  // Gráficos
+  desenharGraficosCategoria(itens);
 }
 
-function atualizarGraficosResumo() {
-  const lista = getListaAtiva();
-  const itens = lista ? lista.itens : [];
+function desenharGraficosCategoria(itens) {
+  const mapa = {}; // categoria -> {qtd, valor}
 
-  // --- Gráficos por categoria (lista selecionada) ---
-  const gastosPorCategoria = {};
-  const qtdPorCategoria = {};
-
-  itens.forEach(i => {
-    const cat = i.categoria && i.categoria.trim() ? i.categoria.trim() : 'Sem categoria';
-    gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + i.totalItem;
-    qtdPorCategoria[cat] = (qtdPorCategoria[cat] || 0) + 1;
+  itens.forEach(item => {
+    const cat = (item.categoria && item.categoria.trim()) ? item.categoria.trim() : 'Sem categoria';
+    if (!mapa[cat]) {
+      mapa[cat] = { qtd: 0, valor: 0 };
+    }
+    mapa[cat].qtd += 1;
+    mapa[cat].valor += item.totalItem;
   });
 
-  const cats = Object.keys(gastosPorCategoria);
-  const valores = cats.map(c => gastosPorCategoria[c]);
-  const quantidades = cats.map(c => qtdPorCategoria[c] || 0);
+  const labels = Object.keys(mapa);
+  const dadosQtd = labels.map(cat => mapa[cat].qtd);
+  const dadosValor = labels.map(cat => mapa[cat].valor);
 
-  const ctxQtd = document.getElementById('chartQtdCategoria').getContext('2d');
-  const ctxVal = document.getElementById('chartValorCategoria').getContext('2d');
-
+  // Quantidade por categoria
   if (chartQtdCategoria) chartQtdCategoria.destroy();
+  chartQtdCategoria = new Chart(canvasQtdCategoria.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: dadosQtd }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.raw} item(ns)`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 11 } } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Valor por categoria
   if (chartValorCategoria) chartValorCategoria.destroy();
-
-  chartQtdCategoria = new Chart(ctxQtd, {
+  chartValorCategoria = new Chart(canvasValorCategoria.getContext('2d'), {
     type: 'bar',
     data: {
-      labels: cats,
-      datasets: [{ data: quantidades }]
-    },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { font: { size: 10 } } },
-        y: { ticks: { stepSize: 1 } }
-      }
-    }
-  });
-
-  chartValorCategoria = new Chart(ctxVal, {
-    type: 'bar',
-    data: {
-      labels: cats,
-      datasets: [{ data: valores }]
+      labels,
+      datasets: [{ data: dadosValor }]
     },
     options: {
       plugins: {
@@ -1077,93 +854,10 @@ function atualizarGraficosResumo() {
         }
       },
       scales: {
-        x: { ticks: { font: { size: 10 } } },
+        x: { ticks: { font: { size: 11 } } },
         y: {
           ticks: {
-            callback: v => formatarMoeda(v)
-          }
-        }
-      }
-    }
-  });
-
-  // --- Gráfico totais por mês (todas as listas) ---
-  const labelsMes = [];
-  const valoresMes = [];
-
-  const totaisCarteiras = {};
-
-  meses.forEach(m => {
-    let totalMes = 0;
-    (m.listas || []).forEach(l => {
-      (l.itens || []).forEach(i => {
-        totalMes += i.totalItem;
-        const cId = i.carteiraId || 'sem';
-        totaisCarteiras[cId] = (totaisCarteiras[cId] || 0) + i.totalItem;
-      });
-    });
-    labelsMes.push(m.nome || labelMes(m.id));
-    valoresMes.push(totalMes);
-  });
-
-  const ctxMes = document.getElementById('chartTotaisMeses').getContext('2d');
-  if (chartTotaisMeses) chartTotaisMeses.destroy();
-  chartTotaisMeses = new Chart(ctxMes, {
-    type: 'bar',
-    data: {
-      labels: labelsMes,
-      datasets: [{ data: valoresMes }]
-    },
-    options: {
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => formatarMoeda(ctx.raw || 0)
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { font: { size: 10 } } },
-        y: {
-          ticks: {
-            callback: v => formatarMoeda(v)
-          }
-        }
-      }
-    }
-  });
-
-  // --- Gráfico por carteira (todos os meses) ---
-  const labelsCarteira = [];
-  const valoresCarteira = [];
-
-  Object.keys(totaisCarteiras).forEach(id => {
-    labelsCarteira.push(id === 'sem' ? 'Sem carteira' : nomeCarteiraPorId(id));
-    valoresCarteira.push(totaisCarteiras[id]);
-  });
-
-  const ctxCart = document.getElementById('chartCarteiras').getContext('2d');
-  if (chartCarteiras) chartCarteiras.destroy();
-  chartCarteiras = new Chart(ctxCart, {
-    type: 'bar',
-    data: {
-      labels: labelsCarteira,
-      datasets: [{ data: valoresCarteira }]
-    },
-    options: {
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => formatarMoeda(ctx.raw || 0)
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { font: { size: 10 } } },
-        y: {
-          ticks: {
+            font: { size: 11 },
             callback: v => formatarMoeda(v)
           }
         }
@@ -1171,3 +865,19 @@ function atualizarGraficosResumo() {
     }
   });
 }
+
+// ---------- INICIALIZAÇÃO GERAL ----------
+
+function init() {
+  carregarEstado();
+  inicializarDatalistProdutos();
+
+  // Primeira render
+  renderCadastro();
+  syncSeletoresCompraComEstado();
+  syncSeletoresResumoComEstado();
+  atualizarOrcamentoStatus();
+  atualizarResumoEDesenharGraficos();
+}
+
+document.addEventListener('DOMContentLoaded', init);
