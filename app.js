@@ -1,4 +1,13 @@
-// ----- LISTA PADRÃO DE PRODUTOS (autocomplete) -----
+// ====== ESTADO GLOBAL ======
+const STORAGE_KEY = 'controleComprasMeses_v2';
+
+let meses = [];       // [{id, nome, listas:[{id, nome, itens, proximoId, usarOrcamento, valorOrcamento}]}]
+let mesAtivoId = null;
+let listaAtivaId = null;
+let carteiras = [];   // [{id, nome}]
+let itemEditando = null;
+
+// Sugestões de produtos (produto -> categoria)
 const produtosSugeridos = [
   { nome: 'Arroz', categoria: 'Mercearia' },
   { nome: 'Feijão', categoria: 'Mercearia' },
@@ -53,83 +62,23 @@ const produtosSugeridos = [
   { nome: 'Desodorante', categoria: 'Higiene' }
 ];
 
-// ----- ESTADO GLOBAL -----
-const STORAGE_KEY = 'controleComprasMeses_v1';
-let meses = [];
-let mesAtivoId = null;
-let listaAtivaId = null;
-let itemEditando = null;
-let carteiras = []; // {id, nome}
-
-// ----- ELEMENTOS -----
-const selectMes = document.getElementById('selectMes');
-const selectLista = document.getElementById('selectLista');
-const btnNovoMes = document.getElementById('btnNovoMes');
-const btnNovaListaMes = document.getElementById('btnNovaListaMes');
-const btnLimparLista = document.getElementById('btnLimparLista');
-
-const usarOrcamento = document.getElementById('usarOrcamento');
-const valorOrcamentoInput = document.getElementById('valorOrcamento');
-
-const btnAdicionar = document.getElementById('btnAdicionar');
-const tabelaItensBody = document.getElementById('tabelaItensBody');
-
-const totalCompraSpan = document.getElementById('totalCompra');
-const summaryItensSpan = document.getElementById('summaryItens');
-const ticketMedioSpan = document.getElementById('ticketMedio');
-const maiorItemSpan = document.getElementById('maiorItem');
-const maiorItemNomeSpan = document.getElementById('maiorItemNome');
-const qtdCategoriasSpan = document.getElementById('qtdCategorias');
-const infoQuantidadeItensSpan = document.getElementById('infoQuantidadeItens');
-
-const budgetContainer = document.getElementById('budgetContainer');
-const budgetBar = document.getElementById('budgetBar');
-const budgetStatus = document.getElementById('budgetStatus');
-
-const totalGeralMesesSpan = document.getElementById('totalGeralMeses');
-const qtdMesesSpan = document.getElementById('qtdMeses');
-const mesTopLabelSpan = document.getElementById('mesTopLabel');
-const mesTopValorSpan = document.getElementById('mesTopValor');
-const qtdListasTotaisSpan = document.getElementById('qtdListasTotais');
-
-const modalEdicao = document.getElementById('modalEdicao');
-const editProduto = document.getElementById('editProduto');
-const editCategoria = document.getElementById('editCategoria');
-const editCarteira = document.getElementById('editCarteira');
-const editQuantidade = document.getElementById('editQuantidade');
-const editUnidade = document.getElementById('editUnidade');
-const editPreco = document.getElementById('editPreco');
-const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
-const btnSalvarEdicao = document.getElementById('btnSalvarEdicao');
-
-const inputProduto = document.getElementById('produto');
-const inputCategoria = document.getElementById('categoria');
-const datalistProdutos = document.getElementById('listaProdutos');
-const selectCarteiraItem = document.getElementById('carteiraItem');
-
-const inputNovaCarteiraNome = document.getElementById('novaCarteiraNome');
-const btnAdicionarCarteira = document.getElementById('btnAdicionarCarteira');
-const listaCarteirasResumo = document.getElementById('listaCarteirasResumo');
-
-const btnExportarBackup = document.getElementById('btnExportarBackup');
-const btnImportarBackup = document.getElementById('btnImportarBackup');
-const inputImportarBackup = document.getElementById('inputImportarBackup');
-
-// Gráficos
-let chartCategorias = null;
-let chartTopProdutos = null;
+// Chart.js instances
+let chartQtdCategoria = null;
+let chartValorCategoria = null;
 let chartTotaisMeses = null;
 let chartCarteiras = null;
 
-// ----- FUNÇÕES AUXILIARES -----
-function getMesAtivo() {
-  return meses.find(m => m.id === mesAtivoId) || null;
+// ====== HELPERS ======
+function idMesAtual() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  return `${ano}-${mes}`;
 }
 
-function getListaAtiva() {
-  const mes = getMesAtivo();
-  if (!mes) return null;
-  return mes.listas.find(l => l.id === listaAtivaId) || null;
+function labelMes(id) {
+  const [ano, mes] = id.split('-');
+  return `${mes}/${ano}`;
 }
 
 function formatarMoeda(valor) {
@@ -139,30 +88,12 @@ function formatarMoeda(valor) {
   });
 }
 
-function formatarQuantidade(quantidade, unidade) {
-  if (unidade === 'g') {
-    return quantidade.toFixed(0) + ' g';
-  } else if (unidade === 'kg') {
-    return quantidade.toFixed(3).replace('.', ',') + ' kg';
-  } else if (unidade === 'L') {
-    return quantidade.toFixed(3).replace('.', ',') + ' L';
-  } else if (unidade === 'cx') {
-    return quantidade.toFixed(2).replace('.', ',') + ' cx';
-  } else {
-    return quantidade.toFixed(2).replace('.', ',') + ' un';
-  }
-}
-
-function idMesAtual() {
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-  return `${ano}-${mes}`;
-}
-
-function labelMes(idMes) {
-  const [ano, mes] = idMes.split('-');
-  return `${mes}/${ano}`;
+function formatarQuantidade(qtd, unidade) {
+  if (unidade === 'g') return `${qtd.toFixed(0)} g`;
+  if (unidade === 'kg') return `${qtd.toFixed(3).replace('.', ',')} kg`;
+  if (unidade === 'L') return `${qtd.toFixed(3).replace('.', ',')} L`;
+  if (unidade === 'cx') return `${qtd.toFixed(2).replace('.', ',')} cx`;
+  return `${qtd.toFixed(2).replace('.', ',')} un`;
 }
 
 function inicializarCarteirasPadrao() {
@@ -188,7 +119,6 @@ function salvarEstado() {
 
 function carregarEstado() {
   const raw = localStorage.getItem(STORAGE_KEY);
-
   if (!raw) {
     const id = idMesAtual();
     const mesPadrao = {
@@ -217,8 +147,8 @@ function carregarEstado() {
       meses = data.meses;
       mesAtivoId = data.mesAtivoId || meses[0].id;
       const mes = getMesAtivo();
-      if (mes) {
-        listaAtivaId = data.listaAtivaId || (mes.listas[0] && mes.listas[0].id);
+      if (mes && mes.listas.length > 0) {
+        listaAtivaId = data.listaAtivaId || mes.listas[0].id;
       } else {
         listaAtivaId = null;
       }
@@ -269,541 +199,457 @@ function carregarEstado() {
   }
 }
 
-// ----- AUTOCOMPLETE PRODUTO → CATEGORIA (AJUSTADO) -----
-function inicializarListaProdutos() {
-  datalistProdutos.innerHTML = '';
-  produtosSugeridos.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.nome;
-    datalistProdutos.appendChild(opt);
-  });
+function getMesAtivo() {
+  return meses.find(m => m.id === mesAtivoId) || null;
 }
 
-// >>> AQUI o ajuste: atualiza SEMPRE a categoria quando o produto bate com a lista
-function atualizarCategoriaPeloProduto() {
-  const nomeProduto = (inputProduto.value || '').trim().toLowerCase();
-  if (!nomeProduto) return;
-
-  // tenta match exato (ignorando caixa)
-  let encontrado = produtosSugeridos.find(
-    p => p.nome.toLowerCase() === nomeProduto
-  );
-
-  // se não achar exato, tenta incluir (para ajudar na digitação)
-  if (!encontrado) {
-    encontrado = produtosSugeridos.find(
-      p => p.nome.toLowerCase().includes(nomeProduto)
-    );
-  }
-
-  if (encontrado) {
-    // agora SEM condição: sempre atualiza categoria
-    inputCategoria.value = encontrado.categoria;
-  }
+function getListaAtiva() {
+  const mes = getMesAtivo();
+  if (!mes) return null;
+  return mes.listas.find(l => l.id === listaAtivaId) || null;
 }
-
-// usamos "input" (pega digitação e seleção do datalist)
-inputProduto.addEventListener('input', atualizarCategoriaPeloProduto);
-// opcional: reforço em blur
-inputProduto.addEventListener('blur', atualizarCategoriaPeloProduto);
-
-// ----- CARTEIRAS -----
-function atualizarSelectCarteiras() {
-  selectCarteiraItem.innerHTML = '';
-  editCarteira.innerHTML = '';
-
-  const optNenhumaEdit = document.createElement('option');
-  optNenhumaEdit.value = '';
-  optNenhumaEdit.textContent = 'Sem carteira';
-  editCarteira.appendChild(optNenhumaEdit);
-
-  if (carteiras.length === 0) {
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'Sem carteiras';
-    selectCarteiraItem.appendChild(opt);
-    return;
-  }
-
-  carteiras.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id;
-    opt.textContent = c.nome;
-    selectCarteiraItem.appendChild(opt);
-
-    const opt2 = document.createElement('option');
-    opt2.value = c.id;
-    opt2.textContent = c.nome;
-    editCarteira.appendChild(opt2);
-  });
-}
-
-function atualizarResumoCarteirasChips() {
-  listaCarteirasResumo.innerHTML = '';
-  if (carteiras.length === 0) {
-    const span = document.createElement('span');
-    span.textContent = 'Nenhuma carteira cadastrada.';
-    span.classList.add('muted');
-    listaCarteirasResumo.appendChild(span);
-    return;
-  }
-
-  carteiras.forEach(c => {
-    const chip = document.createElement('div');
-    chip.classList.add('chip');
-    chip.textContent = c.nome;
-    listaCarteirasResumo.appendChild(chip);
-  });
-}
-
-function adicionarCarteira() {
-  const nome = inputNovaCarteiraNome.value.trim();
-  if (!nome) {
-    alert('Informe o nome da carteira (ex: Pix, Crédito Nubank, VR).');
-    return;
-  }
-  const id = 'c' + Date.now();
-  carteiras.push({ id, nome });
-  inputNovaCarteiraNome.value = '';
-  atualizarSelectCarteiras();
-  atualizarResumoCarteirasChips();
-  salvarEstado();
-}
-
-btnAdicionarCarteira.addEventListener('click', (e) => {
-  e.preventDefault();
-  adicionarCarteira();
-});
-
-inputNovaCarteiraNome.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    adicionarCarteira();
-  }
-});
 
 function nomeCarteiraPorId(id) {
   const c = carteiras.find(x => x.id === id);
   return c ? c.nome : 'Sem carteira';
 }
 
-// ----- UI: MESES E LISTAS -----
-function atualizarSelectMeses() {
-  selectMes.innerHTML = '';
-  meses.forEach(m => {
+// ====== DOM READY ======
+document.addEventListener('DOMContentLoaded', () => {
+  // Tabs
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.dataset.tab;
+
+      tabButtons.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+
+      btn.classList.add('active');
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+
+      // Ao trocar de aba, atualiza resumos/gráficos
+      if (tabId === 'resumo') {
+        atualizarTelaResumo();
+      }
+    });
+  });
+
+  // Inicializar dados
+  carregarEstado();
+  inicializarAutocompleteProdutos();
+  inicializarUI();
+});
+
+// ====== UI: AUTOCOMPLETE (PRODUTO -> CATEGORIA) ======
+function inicializarAutocompleteProdutos() {
+  const datalistProdutos = document.getElementById('listaProdutos');
+  datalistProdutos.innerHTML = '';
+  produtosSugeridos.forEach(p => {
     const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.nome || labelMes(m.id);
-    if (m.id === mesAtivoId) opt.selected = true;
-    selectMes.appendChild(opt);
+    opt.value = p.nome;
+    datalistProdutos.appendChild(opt);
+  });
+
+  const inputProduto = document.getElementById('produto');
+  const inputCategoria = document.getElementById('categoria');
+
+  function sugerirCategoria() {
+    const texto = inputProduto.value.trim().toLowerCase();
+    if (!texto) return;
+    // Tenta match exato primeiro
+    let encontrado = produtosSugeridos.find(
+      p => p.nome.toLowerCase() === texto
+    );
+    // Se não achar, tenta começa com
+    if (!encontrado) {
+      const candidatos = produtosSugeridos.filter(
+        p => p.nome.toLowerCase().startsWith(texto)
+      );
+      if (candidatos.length === 1) {
+        encontrado = candidatos[0];
+      }
+    }
+    if (encontrado && !inputCategoria.value.trim()) {
+      inputCategoria.value = encontrado.categoria;
+    }
+  }
+
+  // BUG AJUSTADO: usamos 'input' e 'change' para garantir que a categoria atualize
+  inputProduto.addEventListener('input', sugerirCategoria);
+  inputProduto.addEventListener('change', sugerirCategoria);
+  inputProduto.addEventListener('blur', sugerirCategoria);
+}
+
+// ====== UI INICIAL ======
+function inicializarUI() {
+  // Seletores de mês
+  atualizarSelectMeses();
+
+  // Seletores de listas (dependem do mês ativo)
+  atualizarSelectListas();
+
+  // Carteiras
+  atualizarSelectCarteiras();
+  atualizarChipsCarteiras();
+
+  // Eventos de cadastro de meses/listas/carteiras
+  configurarEventosCadastro();
+
+  // Eventos da aba Comprando
+  configurarEventosComprando();
+
+  // Eventos resumo, backup e edição
+  configurarEventosResumo();
+  configurarEventosModal();
+
+  // Carregar visão inicial (comprando/resumo)
+  atualizarTelaComprando();
+  atualizarTelaResumo();
+}
+
+// ====== SELECTS DE MÊS / LISTA (SINCRONIZADOS NAS 3 ABAS) ======
+function atualizarSelectMeses() {
+  const selectsMes = [
+    document.getElementById('selectMesCadastro'),
+    document.getElementById('selectMesListas'),
+    document.getElementById('selectMesComprando'),
+    document.getElementById('selectMesResumo')
+  ];
+
+  selectsMes.forEach(sel => {
+    if (!sel) return;
+    sel.innerHTML = '';
+    meses.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.nome || labelMes(m.id);
+      if (m.id === mesAtivoId) opt.selected = true;
+      sel.appendChild(opt);
+    });
   });
 }
 
 function atualizarSelectListas() {
   const mes = getMesAtivo();
-  selectLista.innerHTML = '';
-  if (!mes || !Array.isArray(mes.listas) || mes.listas.length === 0) {
-    listaAtivaId = null;
-    return;
-  }
-  mes.listas.forEach(l => {
-    const opt = document.createElement('option');
-    opt.value = l.id;
-    opt.textContent = l.nome;
-    if (l.id === listaAtivaId) opt.selected = true;
-    selectLista.appendChild(opt);
+  const selectsLista = [
+    document.getElementById('selectListaCadastro'),
+    document.getElementById('selectListaComprando'),
+    document.getElementById('selectListaResumo')
+  ];
+
+  selectsLista.forEach(sel => {
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (!mes || !Array.isArray(mes.listas) || mes.listas.length === 0) {
+      listaAtivaId = null;
+      return;
+    }
+    mes.listas.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.id;
+      opt.textContent = l.nome;
+      if (l.id === listaAtivaId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    if (!listaAtivaId) {
+      listaAtivaId = mes.listas[0].id;
+    }
   });
-  if (!listaAtivaId) {
-    listaAtivaId = mes.listas[0].id;
-  }
 }
 
-function carregarListaNaUI() {
+// ====== CARTEIRAS (UI) ======
+function atualizarSelectCarteiras() {
+  const selItem = document.getElementById('carteiraItem');
+  const selEdit = document.getElementById('editCarteira');
+
+  const preencher = (select) => {
+    select.innerHTML = '';
+    const optNenhuma = document.createElement('option');
+    optNenhuma.value = '';
+    optNenhuma.textContent = 'Sem carteira';
+    select.appendChild(optNenhuma);
+
+    carteiras.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.nome;
+      select.appendChild(opt);
+    });
+  };
+
+  preencher(selItem);
+  preencher(selEdit);
+}
+
+function atualizarChipsCarteiras() {
+  const cont = document.getElementById('listaCarteirasResumo');
+  cont.innerHTML = '';
+  if (!carteiras.length) {
+    const span = document.createElement('span');
+    span.textContent = 'Nenhuma carteira cadastrada.';
+    span.classList.add('helper-text');
+    cont.appendChild(span);
+    return;
+  }
+  carteiras.forEach(c => {
+    const chip = document.createElement('div');
+    chip.classList.add('chip');
+    chip.textContent = c.nome;
+    cont.appendChild(chip);
+  });
+}
+
+// ====== EVENTOS: CADASTRO (TAB 1) ======
+function configurarEventosCadastro() {
+  const novoMesInput = document.getElementById('novoMesInput');
+  const btnAdicionarMes = document.getElementById('btnAdicionarMes');
+
+  const novaListaInput = document.getElementById('novaListaInput');
+  const btnAdicionarLista = document.getElementById('btnAdicionarLista');
+
+  const selectMesCadastro = document.getElementById('selectMesCadastro');
+  const selectMesListas = document.getElementById('selectMesListas');
+  const selectListaCadastro = document.getElementById('selectListaCadastro');
+
+  const inputNovaCarteiraNome = document.getElementById('novaCarteiraNome');
+  const btnAdicionarCarteira = document.getElementById('btnAdicionarCarteira');
+
+  // Escolher mês (Cadastro / Listas) sincroniza estado global
+  selectMesCadastro.addEventListener('change', (e) => {
+    mesAtivoId = e.target.value;
+    const mes = getMesAtivo();
+    if (mes && mes.listas.length > 0) {
+      listaAtivaId = mes.listas[0].id;
+    } else {
+      listaAtivaId = null;
+    }
+    atualizarSelectMeses();
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  selectMesListas.addEventListener('change', (e) => {
+    mesAtivoId = e.target.value;
+    const mes = getMesAtivo();
+    if (mes && mes.listas.length > 0) {
+      listaAtivaId = mes.listas[0].id;
+    } else {
+      listaAtivaId = null;
+    }
+    atualizarSelectMeses();
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  selectListaCadastro.addEventListener('change', (e) => {
+    listaAtivaId = e.target.value;
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  // Adicionar mês
+  btnAdicionarMes.addEventListener('click', () => {
+    const val = novoMesInput.value.trim();
+    if (!val) return;
+    const match = val.match(/^(\d{2})\/(\d{4})$/);
+    if (!match) {
+      alert('Informe o mês no formato MM/AAAA (ex: 03/2026).');
+      return;
+    }
+    const mes = match[1];
+    const ano = match[2];
+    const id = `${ano}-${mes}`;
+    if (meses.some(m => m.id === id)) {
+      alert('Esse mês já existe.');
+      return;
+    }
+    const novoMes = {
+      id,
+      nome: `${mes}/${ano}`,
+      listas: [{
+        id: 'lista-1',
+        nome: 'Lista padrão',
+        itens: [],
+        proximoId: 1,
+        usarOrcamento: false,
+        valorOrcamento: ''
+      }]
+    };
+    meses.push(novoMes);
+    mesAtivoId = id;
+    listaAtivaId = novoMes.listas[0].id;
+    novoMesInput.value = '';
+    atualizarSelectMeses();
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  // Adicionar lista
+  btnAdicionarLista.addEventListener('click', () => {
+    const nome = novaListaInput.value.trim();
+    if (!nome) return;
+    const mes = getMesAtivo();
+    if (!mes) return;
+    const nova = {
+      id: 'lista-' + Date.now(),
+      nome,
+      itens: [],
+      proximoId: 1,
+      usarOrcamento: false,
+      valorOrcamento: ''
+    };
+    mes.listas.push(nova);
+    listaAtivaId = nova.id;
+    novaListaInput.value = '';
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  // Adicionar carteira
+  function addCarteira() {
+    const nome = inputNovaCarteiraNome.value.trim();
+    if (!nome) return;
+    const c = { id: 'c' + Date.now(), nome };
+    carteiras.push(c);
+    inputNovaCarteiraNome.value = '';
+    atualizarSelectCarteiras();
+    atualizarChipsCarteiras();
+    salvarEstado();
+  }
+
+  btnAdicionarCarteira.addEventListener('click', addCarteira);
+  inputNovaCarteiraNome.addEventListener('keypress', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addCarteira();
+    }
+  });
+}
+
+// ====== EVENTOS: COMPRANDO (TAB 2) ======
+function configurarEventosComprando() {
+  const selectMesComprando = document.getElementById('selectMesComprando');
+  const selectListaComprando = document.getElementById('selectListaComprando');
+  const usarOrcamento = document.getElementById('usarOrcamento');
+  const valorOrcamentoInput = document.getElementById('valorOrcamento');
+
+  const btnAdicionarItem = document.getElementById('btnAdicionarItem');
+  const btnLimparLista = document.getElementById('btnLimparLista');
+  const precoInput = document.getElementById('preco');
+
+  // mudar mês na aba comprando
+  selectMesComprando.addEventListener('change', (e) => {
+    mesAtivoId = e.target.value;
+    const mes = getMesAtivo();
+    if (mes && mes.listas.length > 0) {
+      listaAtivaId = mes.listas[0].id;
+    } else {
+      listaAtivaId = null;
+    }
+    atualizarSelectMeses();
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  // mudar lista na aba comprando
+  selectListaComprando.addEventListener('change', (e) => {
+    listaAtivaId = e.target.value;
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
+
+  // Orçamento
+  usarOrcamento.addEventListener('change', () => {
+    const lista = getListaAtiva();
+    if (!lista) return;
+    lista.usarOrcamento = usarOrcamento.checked;
+    if (!lista.usarOrcamento) {
+      lista.valorOrcamento = '';
+      valorOrcamentoInput.value = '';
+      valorOrcamentoInput.disabled = true;
+    } else {
+      valorOrcamentoInput.disabled = false;
+    }
+    salvarEstado();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+  });
+
+  valorOrcamentoInput.addEventListener('input', () => {
+    const lista = getListaAtiva();
+    if (!lista) return;
+    lista.valorOrcamento = valorOrcamentoInput.value;
+    salvarEstado();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+  });
+
+  // Adicionar item
+  btnAdicionarItem.addEventListener('click', (e) => {
+    e.preventDefault();
+    adicionarItemNaLista();
+  });
+
+  // Enter no campo preço
+  precoInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      adicionarItemNaLista();
+    }
+  });
+
+  // Limpar lista
+  btnLimparLista.addEventListener('click', () => {
+    const lista = getListaAtiva();
+    if (!lista) return;
+    if (!confirm(`Limpar todos os itens da lista "${lista.nome}"?`)) return;
+    lista.itens = [];
+    lista.proximoId = 1;
+    lista.usarOrcamento = false;
+    lista.valorOrcamento = '';
+    salvarEstado();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+  });
+}
+
+function adicionarItemNaLista() {
   const lista = getListaAtiva();
   if (!lista) {
-    tabelaItensBody.innerHTML = '';
-    infoQuantidadeItensSpan.textContent = 'Nenhuma lista selecionada.';
-    totalCompraSpan.textContent = 'R$ 0,00';
-    summaryItensSpan.textContent = '0 itens';
-    ticketMedioSpan.textContent = 'R$ 0,00';
-    maiorItemSpan.textContent = 'R$ 0,00';
-    maiorItemNomeSpan.textContent = '–';
-    qtdCategoriasSpan.textContent = '0';
-    budgetContainer.style.display = 'none';
-    atualizarGraficos();
-    atualizarGraficosGerais();
+    alert('Selecione um mês e uma lista para lançar os itens.');
     return;
   }
 
-  usarOrcamento.checked = !!lista.usarOrcamento;
-  valorOrcamentoInput.disabled = !lista.usarOrcamento;
-  valorOrcamentoInput.value = lista.valorOrcamento || '';
+  const produtoInput = document.getElementById('produto');
+  const categoriaInput = document.getElementById('categoria');
+  const carteiraSelect = document.getElementById('carteiraItem');
+  const quantidadeInput = document.getElementById('quantidade');
+  const unidadeSelect = document.getElementById('unidade');
+  const precoInput = document.getElementById('preco');
 
-  renderizarTabela();
-  atualizarResumo();
-}
-
-// ----- RENDERIZAÇÃO LISTA -----
-function renderizarTabela() {
-  const lista = getListaAtiva();
-  if (!lista) return;
-  const itens = lista.itens || [];
-
-  tabelaItensBody.innerHTML = '';
-
-  itens.forEach((item, index) => {
-    const tr = document.createElement('tr');
-
-    const tdSeq = document.createElement('td');
-    tdSeq.textContent = index + 1;
-
-    const tdProduto = document.createElement('td');
-    tdProduto.textContent = item.produto;
-
-    const tdCategoria = document.createElement('td');
-    const categoriaLabel = item.categoria && item.categoria.trim()
-      ? item.categoria.trim()
-      : 'Sem categoria';
-    const spanTag = document.createElement('span');
-    spanTag.classList.add('tag');
-    if (!item.categoria) spanTag.classList.add('tag-default');
-    spanTag.textContent = categoriaLabel;
-    tdCategoria.appendChild(spanTag);
-
-    const tdCarteira = document.createElement('td');
-    const carteiraNome = item.carteiraId ? nomeCarteiraPorId(item.carteiraId) : 'Sem carteira';
-    const spanCarteira = document.createElement('span');
-    spanCarteira.classList.add('tag');
-    spanCarteira.textContent = carteiraNome;
-    tdCarteira.appendChild(spanCarteira);
-
-    const tdQuantidade = document.createElement('td');
-    tdQuantidade.textContent = formatarQuantidade(item.quantidade, item.unidade);
-
-    const tdPreco = document.createElement('td');
-    tdPreco.classList.add('right');
-    tdPreco.textContent = formatarMoeda(item.preco);
-
-    const tdTotalItem = document.createElement('td');
-    tdTotalItem.classList.add('right');
-    tdTotalItem.textContent = formatarMoeda(item.totalItem);
-
-    const tdAcao = document.createElement('td');
-    tdAcao.classList.add('right');
-
-    const btnEditar = document.createElement('button');
-    btnEditar.textContent = 'Editar';
-    btnEditar.classList.add('btn', 'btn-secondary');
-    btnEditar.style.padding = '4px 8px';
-    btnEditar.style.fontSize = '0.8rem';
-    btnEditar.style.marginRight = '4px';
-    btnEditar.addEventListener('click', () => abrirEditor(item.id));
-    tdAcao.appendChild(btnEditar);
-
-    const btnRemover = document.createElement('button');
-    btnRemover.textContent = 'Excluir';
-    btnRemover.classList.add('btn', 'btn-outline');
-    btnRemover.style.padding = '4px 8px';
-    btnRemover.style.fontSize = '0.8rem';
-    btnRemover.addEventListener('click', () => removerItem(item.id));
-    tdAcao.appendChild(btnRemover);
-
-    tr.appendChild(tdSeq);
-    tr.appendChild(tdProduto);
-    tr.appendChild(tdCategoria);
-    tr.appendChild(tdCarteira);
-    tr.appendChild(tdQuantidade);
-    tr.appendChild(tdPreco);
-    tr.appendChild(tdTotalItem);
-    tr.appendChild(tdAcao);
-
-    tabelaItensBody.appendChild(tr);
-  });
-
-  if (itens.length === 0) {
-    infoQuantidadeItensSpan.textContent = 'Nenhum item adicionado ainda.';
-  } else if (itens.length === 1) {
-    infoQuantidadeItensSpan.textContent = '1 item na lista.';
-  } else {
-    infoQuantidadeItensSpan.textContent = `${itens.length} itens na lista.`;
-  }
-}
-
-function atualizarResumo() {
-  const lista = getListaAtiva();
-  if (!lista) return;
-
-  const itens = lista.itens || [];
-  const total = itens.reduce((soma, item) => soma + item.totalItem, 0);
-
-  totalCompraSpan.textContent = formatarMoeda(total);
-  summaryItensSpan.textContent = `${itens.length} item${itens.length === 1 ? '' : 's'}`;
-
-  const ticketMedio = itens.length > 0 ? total / itens.length : 0;
-  ticketMedioSpan.textContent = formatarMoeda(ticketMedio);
-
-  if (itens.length > 0) {
-    const maior = itens.reduce((acc, item) =>
-      item.totalItem > acc.totalItem ? item : acc, itens[0]);
-    maiorItemSpan.textContent = formatarMoeda(maior.totalItem);
-    maiorItemNomeSpan.textContent = maior.produto;
-  } else {
-    maiorItemSpan.textContent = 'R$ 0,00';
-    maiorItemNomeSpan.textContent = '–';
-  }
-
-  const categoriasSet = new Set(
-    itens.map(i => (i.categoria && i.categoria.trim()) ? i.categoria.trim() : 'Sem categoria')
-  );
-  qtdCategoriasSpan.textContent = itens.length === 0 ? 0 : categoriasSet.size;
-
-  // orçamento
-  if (lista.usarOrcamento && lista.valorOrcamento !== '') {
-    const orcamento = parseFloat(String(lista.valorOrcamento).replace(',', '.')) || 0;
-    if (orcamento > 0) {
-      budgetContainer.style.display = 'block';
-      const perc = Math.min(100, (total / orcamento) * 100);
-      budgetBar.style.width = perc.toFixed(1) + '%';
-
-      const diferenca = orcamento - total;
-      if (diferenca > 0) {
-        budgetStatus.textContent =
-          `Você ainda pode gastar ${formatarMoeda(diferenca)} (${perc.toFixed(1)}% do orçamento utilizado).`;
-        budgetStatus.className = 'budget-status budget-ok';
-      } else if (diferenca === 0) {
-        budgetStatus.textContent =
-          `Você atingiu exatamente o orçamento (${perc.toFixed(1)}% utilizado).`;
-        budgetStatus.className = 'budget-status budget-alerta';
-      } else {
-        budgetStatus.textContent =
-          `Você ultrapassou o orçamento em ${formatarMoeda(Math.abs(diferenca))} (${perc.toFixed(1)}% do orçamento).`;
-        budgetStatus.className = 'budget-status budget-estourado';
-      }
-    } else {
-      budgetContainer.style.display = 'none';
-    }
-  } else {
-    budgetContainer.style.display = 'none';
-  }
-
-  atualizarGraficos();
-  atualizarGraficosGerais();
-  salvarEstado();
-}
-
-// ----- GRÁFICOS DA LISTA -----
-function atualizarGraficos() {
-  const lista = getListaAtiva();
-  const itens = lista ? (lista.itens || []) : [];
-
-  // Gastos por categoria
-  const gastosPorCategoria = {};
-  itens.forEach(item => {
-    const cat = (item.categoria && item.categoria.trim()) ? item.categoria.trim() : 'Sem categoria';
-    gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + item.totalItem;
-  });
-
-  const categorias = Object.keys(gastosPorCategoria);
-  const valoresCategorias = Object.values(gastosPorCategoria);
-
-  const ctxCat = document.getElementById('chartCategorias').getContext('2d');
-  if (chartCategorias) chartCategorias.destroy();
-  chartCategorias = new Chart(ctxCat, {
-    type: 'doughnut',
-    data: {
-      labels: categorias,
-      datasets: [{ data: valoresCategorias }]
-    },
-    options: {
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: '#111827', font: { size: 11 } }
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const label = context.label || '';
-              const value = context.raw || 0;
-              return `${label}: ${formatarMoeda(value)}`;
-            }
-          }
-        }
-      }
-    }
-  });
-
-  // Top produtos
-  const itensOrdenados = [...itens]
-    .sort((a, b) => b.totalItem - a.totalItem)
-    .slice(0, 5);
-  const labelsTop = itensOrdenados.map(i => i.produto);
-  const valoresTop = itensOrdenados.map(i => i.totalItem);
-
-  const ctxTop = document.getElementById('chartTopProdutos').getContext('2d');
-  if (chartTopProdutos) chartTopProdutos.destroy();
-  chartTopProdutos = new Chart(ctxTop, {
-    type: 'bar',
-    data: {
-      labels: labelsTop,
-      datasets: [{ data: valoresTop }]
-    },
-    options: {
-      scales: {
-        x: { ticks: { color: '#111827', font: { size: 11 } } },
-        y: {
-          ticks: {
-            color: '#111827',
-            font: { size: 11 },
-            callback: (value) => formatarMoeda(value)
-          }
-        }
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => formatarMoeda(context.raw || 0)
-          }
-        }
-      }
-    }
-  });
-}
-
-// ----- GRÁFICOS GERAIS (MÊS + CARTEIRA) -----
-function atualizarGraficosGerais() {
-  const labelsMes = [];
-  const valoresMes = [];
-  let totalGeral = 0;
-  let qtdListasTotais = 0;
-  const totaisCarteiras = {}; // idCarteira -> valor
-
-  meses.forEach(m => {
-    let totalMes = 0;
-    (m.listas || []).forEach(l => {
-      qtdListasTotais++;
-      (l.itens || []).forEach(item => {
-        totalMes += item.totalItem;
-
-        const idCarteira = item.carteiraId || 'sem';
-        totaisCarteiras[idCarteira] = (totaisCarteiras[idCarteira] || 0) + item.totalItem;
-      });
-    });
-    labelsMes.push(m.nome || labelMes(m.id));
-    valoresMes.push(totalMes);
-    totalGeral += totalMes;
-  });
-
-  totalGeralMesesSpan.textContent = formatarMoeda(totalGeral);
-  qtdMesesSpan.textContent = meses.length;
-  qtdListasTotaisSpan.textContent = qtdListasTotais;
-
-  if (meses.length > 0) {
-    let idxTop = 0;
-    let maxVal = valoresMes[0] || 0;
-    for (let i = 1; i < valoresMes.length; i++) {
-      if (valoresMes[i] > maxVal) {
-        maxVal = valoresMes[i];
-        idxTop = i;
-      }
-    }
-    mesTopLabelSpan.textContent = labelsMes[idxTop];
-    mesTopValorSpan.textContent = formatarMoeda(maxVal);
-  } else {
-    mesTopLabelSpan.textContent = '–';
-    mesTopValorSpan.textContent = 'R$ 0,00';
-  }
-
-  // gráfico por mês
-  const ctxMes = document.getElementById('chartTotaisMeses').getContext('2d');
-  if (chartTotaisMeses) chartTotaisMeses.destroy();
-  chartTotaisMeses = new Chart(ctxMes, {
-    type: 'bar',
-    data: {
-      labels: labelsMes,
-      datasets: [{ data: valoresMes }]
-    },
-    options: {
-      scales: {
-        x: { ticks: { color: '#111827', font: { size: 11 } } },
-        y: {
-          ticks: {
-            color: '#111827',
-            font: { size: 11 },
-            callback: (value) => formatarMoeda(value)
-          }
-        }
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => formatarMoeda(context.raw || 0)
-          }
-        }
-      }
-    }
-  });
-
-  // gráfico por carteira
-  const labelsCarteiras = [];
-  const valoresCarteiras = [];
-
-  Object.keys(totaisCarteiras).forEach(id => {
-    if (id === 'sem') {
-      labelsCarteiras.push('Sem carteira');
-    } else {
-      labelsCarteiras.push(nomeCarteiraPorId(id));
-    }
-    valoresCarteiras.push(totaisCarteiras[id]);
-  });
-
-  const ctxCarteiras = document.getElementById('chartCarteiras').getContext('2d');
-  if (chartCarteiras) chartCarteiras.destroy();
-  chartCarteiras = new Chart(ctxCarteiras, {
-    type: 'bar',
-    data: {
-      labels: labelsCarteiras,
-      datasets: [{ data: valoresCarteiras }]
-    },
-    options: {
-      scales: {
-        x: { ticks: { color: '#111827', font: { size: 11 } } },
-        y: {
-          ticks: {
-            color: '#111827',
-            font: { size: 11 },
-            callback: (value) => formatarMoeda(value)
-          }
-        }
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (context) => formatarMoeda(context.raw || 0)
-          }
-        }
-      }
-    }
-  });
-}
-
-// ----- AÇÕES: ITENS -----
-function adicionarItem() {
-  const lista = getListaAtiva();
-  if (!lista) return;
-
-  const produto = inputProduto.value.trim();
-  const categoria = inputCategoria.value.trim();
-  const carteiraId = selectCarteiraItem.value || null;
-  const quantidadeInput = document.getElementById('quantidade').value;
-  const precoInput = document.getElementById('preco').value;
-  const unidade = document.getElementById('unidade').value;
-
-  const quantidade = parseFloat(String(quantidadeInput).replace(',', '.'));
-  const preco = parseFloat(String(precoInput).replace(',', '.'));
+  const produto = produtoInput.value.trim();
+  const categoria = categoriaInput.value.trim();
+  const carteiraId = carteiraSelect.value || null;
+  const quantidade = parseFloat(String(quantidadeInput.value).replace(',', '.'));
+  const preco = parseFloat(String(precoInput.value).replace(',', '.'));
+  const unidade = unidadeSelect.value;
 
   if (!produto) {
     alert('Informe o nome do produto.');
@@ -818,11 +664,11 @@ function adicionarItem() {
     return;
   }
 
-  let totalItem;
+  let total;
   if (unidade === 'g') {
-    totalItem = (quantidade / 1000) * preco;
+    total = (quantidade / 1000) * preco;
   } else {
-    totalItem = quantidade * preco;
+    total = quantidade * preco;
   }
 
   const item = {
@@ -832,321 +678,496 @@ function adicionarItem() {
     quantidade,
     unidade,
     preco,
-    totalItem,
+    totalItem: total,
     carteiraId
   };
 
   lista.itens.push(item);
 
-  inputProduto.value = '';
-  inputCategoria.value = '';
-  document.getElementById('quantidade').value = '';
-  document.getElementById('preco').value = '';
-  inputProduto.focus();
+  produtoInput.value = '';
+  categoriaInput.value = '';
+  quantidadeInput.value = '';
+  precoInput.value = '';
+  produtoInput.focus();
 
-  renderizarTabela();
-  atualizarResumo();
-}
-
-function removerItem(id) {
-  const lista = getListaAtiva();
-  if (!lista) return;
-
-  lista.itens = lista.itens.filter(i => i.id !== id);
-  renderizarTabela();
-  atualizarResumo();
-}
-
-function limparLista() {
-  const lista = getListaAtiva();
-  if (!lista) return;
-
-  if (!confirm(`Limpar todos os itens e o orçamento da lista "${lista.nome}"?`)) return;
-
-  lista.itens = [];
-  lista.proximoId = 1;
-  lista.usarOrcamento = false;
-  lista.valorOrcamento = '';
-
-  carregarListaNaUI();
   salvarEstado();
+  atualizarTelaComprando();
+  atualizarTelaResumo();
 }
 
-// ----- EDIÇÃO DE ITEM -----
-function abrirEditor(id) {
+// Atualiza textos e orcamento barra na aba Comprando
+function atualizarTelaComprando() {
   const lista = getListaAtiva();
-  if (!lista) return;
+  const infoQuantidadeItens = document.getElementById('infoQuantidadeItens');
+  const usarOrcamento = document.getElementById('usarOrcamento');
+  const valorOrcamentoInput = document.getElementById('valorOrcamento');
+  const boxOrcamentoResumo = document.getElementById('boxOrcamentoResumo');
+  const orcamentoStatusLinha = document.getElementById('orcamentoStatusLinha');
+  const budgetBar = document.getElementById('budgetBar');
 
-  const item = lista.itens.find(i => i.id === id);
-  if (!item) return;
+  if (!lista) {
+    infoQuantidadeItens.textContent = 'Nenhuma lista selecionada.';
+    usarOrcamento.checked = false;
+    valorOrcamentoInput.value = '';
+    valorOrcamentoInput.disabled = true;
+    boxOrcamentoResumo.classList.add('hidden');
+    return;
+  }
 
-  itemEditando = item;
+  const quantidadeItens = lista.itens.length;
+  if (quantidadeItens === 0) {
+    infoQuantidadeItens.textContent = 'Nenhum item lançado ainda.';
+  } else if (quantidadeItens === 1) {
+    infoQuantidadeItens.textContent = '1 item lançado.';
+  } else {
+    infoQuantidadeItens.textContent = `${quantidadeItens} itens lançados.`;
+  }
 
-  editProduto.value = item.produto;
-  editCategoria.value = item.categoria || '';
-  editQuantidade.value = item.quantidade;
-  editUnidade.value = item.unidade;
-  editPreco.value = item.preco;
+  usarOrcamento.checked = !!lista.usarOrcamento;
+  valorOrcamentoInput.disabled = !lista.usarOrcamento;
+  valorOrcamentoInput.value = lista.valorOrcamento || '';
 
-  // preencher carteiras
-  editCarteira.innerHTML = '';
-  const optNenhuma = document.createElement('option');
-  optNenhuma.value = '';
-  optNenhuma.textContent = 'Sem carteira';
-  editCarteira.appendChild(optNenhuma);
+  const totalLista = lista.itens.reduce((soma, i) => soma + i.totalItem, 0);
 
-  carteiras.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id;
-    opt.textContent = c.nome;
-    editCarteira.appendChild(opt);
+  if (lista.usarOrcamento && lista.valorOrcamento) {
+    const orc = parseFloat(String(lista.valorOrcamento).replace(',', '.')) || 0;
+    if (orc > 0) {
+      const perc = Math.min(100, (totalLista / orc) * 100);
+      budgetBar.style.width = `${perc.toFixed(1)}%`;
+
+      const diff = orc - totalLista;
+      if (diff > 0) {
+        orcamentoStatusLinha.textContent =
+          `Total atual: ${formatarMoeda(totalLista)} | Limite: ${formatarMoeda(orc)} | Ainda pode gastar ${formatarMoeda(diff)}.`;
+      } else if (diff === 0) {
+        orcamentoStatusLinha.textContent =
+          `Total atual: ${formatarMoeda(totalLista)} | Você atingiu exatamente o limite definido.`;
+      } else {
+        orcamentoStatusLinha.textContent =
+          `Total atual: ${formatarMoeda(totalLista)} | Limite: ${formatarMoeda(orc)} | Ultrapassou em ${formatarMoeda(Math.abs(diff))}.`;
+      }
+      boxOrcamentoResumo.classList.remove('hidden');
+    } else {
+      boxOrcamentoResumo.classList.add('hidden');
+      budgetBar.style.width = '0%';
+    }
+  } else {
+    boxOrcamentoResumo.classList.add('hidden');
+    budgetBar.style.width = '0%';
+  }
+}
+
+// ====== EVENTOS: RESUMO / BACKUP / EDIÇÃO ======
+function configurarEventosResumo() {
+  const selectMesResumo = document.getElementById('selectMesResumo');
+  const selectListaResumo = document.getElementById('selectListaResumo');
+  const btnExportarBackup = document.getElementById('btnExportarBackup');
+  const btnImportarBackup = document.getElementById('btnImportarBackup');
+  const inputImportarBackup = document.getElementById('inputImportarBackup');
+
+  selectMesResumo.addEventListener('change', (e) => {
+    mesAtivoId = e.target.value;
+    const mes = getMesAtivo();
+    if (mes && mes.listas.length > 0) {
+      listaAtivaId = mes.listas[0].id;
+    } else {
+      listaAtivaId = null;
+    }
+    atualizarSelectMeses();
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
   });
 
-  editCarteira.value = item.carteiraId || '';
+  selectListaResumo.addEventListener('change', (e) => {
+    listaAtivaId = e.target.value;
+    atualizarSelectListas();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    salvarEstado();
+  });
 
-  modalEdicao.style.display = 'flex';
+  // Backup
+  btnExportarBackup.addEventListener('click', () => {
+    salvarEstado();
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const blob = new Blob([raw], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const hoje = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compras-backup-${hoje}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  btnImportarBackup.addEventListener('click', () => {
+    inputImportarBackup.click();
+  });
+
+  inputImportarBackup.addEventListener('change', () => {
+    const file = inputImportarBackup.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!Array.isArray(data.meses)) {
+          alert('Backup inválido.');
+          return;
+        }
+        meses = data.meses;
+        mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
+        const mes = getMesAtivo();
+        if (mes && mes.listas.length > 0) {
+          listaAtivaId = data.listaAtivaId || mes.listas[0].id;
+        } else {
+          listaAtivaId = null;
+        }
+        if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
+          carteiras = data.carteiras;
+        } else {
+          carteiras = inicializarCarteirasPadrao();
+        }
+        salvarEstado();
+        atualizarSelectMeses();
+        atualizarSelectListas();
+        atualizarSelectCarteiras();
+        atualizarChipsCarteiras();
+        atualizarTelaComprando();
+        atualizarTelaResumo();
+        alert('Backup importado com sucesso.');
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao importar backup.');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+    inputImportarBackup.value = '';
+  });
 }
 
-function fecharEditor() {
-  modalEdicao.style.display = 'none';
-  itemEditando = null;
-}
+// Modal edição
+function configurarEventosModal() {
+  const modal = document.getElementById('modalEdicao');
+  const btnCancelar = document.getElementById('btnCancelarEdicao');
+  const btnSalvar = document.getElementById('btnSalvarEdicao');
 
-btnCancelarEdicao.addEventListener('click', fecharEditor);
+  btnCancelar.addEventListener('click', () => {
+    modal.classList.add('hidden');
+    itemEditando = null;
+  });
 
-btnSalvarEdicao.addEventListener('click', () => {
-  if (!itemEditando) return;
-
-  const prod = editProduto.value.trim();
-  const cat = editCategoria.value.trim();
-  const qtd = parseFloat(String(editQuantidade.value).replace(',', '.'));
-  const und = editUnidade.value;
-  const preco = parseFloat(String(editPreco.value).replace(',', '.'));
-  const carteiraId = editCarteira.value || null;
-
-  if (!prod || isNaN(qtd) || qtd <= 0 || isNaN(preco) || preco <= 0) {
-    alert('Preencha os campos corretamente.');
-    return;
-  }
-
-  let totalItem = und === 'g'
-    ? (qtd / 1000) * preco
-    : qtd * preco;
-
-  itemEditando.produto = prod;
-  itemEditando.categoria = cat;
-  itemEditando.quantidade = qtd;
-  itemEditando.unidade = und;
-  itemEditando.preco = preco;
-  itemEditando.totalItem = totalItem;
-  itemEditando.carteiraId = carteiraId;
-
-  renderizarTabela();
-  atualizarResumo();
-  fecharEditor();
-});
-
-modalEdicao.addEventListener('click', (e) => {
-  if (e.target === modalEdicao) fecharEditor();
-});
-
-// ----- EVENTOS GERAIS -----
-usarOrcamento.addEventListener('change', () => {
-  const lista = getListaAtiva();
-  if (!lista) return;
-
-  lista.usarOrcamento = usarOrcamento.checked;
-  if (!lista.usarOrcamento) {
-    lista.valorOrcamento = '';
-    valorOrcamentoInput.value = '';
-  }
-  valorOrcamentoInput.disabled = !lista.usarOrcamento;
-  atualizarResumo();
-});
-
-valorOrcamentoInput.addEventListener('input', () => {
-  const lista = getListaAtiva();
-  if (!lista) return;
-  lista.valorOrcamento = valorOrcamentoInput.value;
-  atualizarResumo();
-});
-
-btnAdicionar.addEventListener('click', (e) => {
-  e.preventDefault();
-  adicionarItem();
-});
-
-document.getElementById('preco').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    adicionarItem();
-  }
-});
-
-btnLimparLista.addEventListener('click', (e) => {
-  e.preventDefault();
-  limparLista();
-});
-
-btnNovoMes.addEventListener('click', () => {
-  const hoje = new Date();
-  const anoDefault = hoje.getFullYear();
-  const mesDefault = String(hoje.getMonth() + 1).padStart(2, '0');
-  const input = prompt('Informe o mês/ano no formato MM/AAAA:', `${mesDefault}/${anoDefault}`);
-  if (!input) return;
-
-  const match = input.match(/^(\d{2})\/(\d{4})$/);
-  if (!match) {
-    alert('Formato inválido. Use MM/AAAA, por exemplo 11/2025.');
-    return;
-  }
-
-  const mes = match[1];
-  const ano = match[2];
-  const id = `${ano}-${mes}`;
-  if (meses.some(m => m.id === id)) {
-    alert('Esse mês já existe. Selecione no campo de mês.');
-    return;
-  }
-
-  const novoMes = {
-    id,
-    nome: `${mes}/${ano}`,
-    listas: [{
-      id: 'lista-1',
-      nome: 'Lista padrão',
-      itens: [],
-      proximoId: 1,
-      usarOrcamento: false,
-      valorOrcamento: ''
-    }]
-  };
-  meses.push(novoMes);
-  mesAtivoId = id;
-  listaAtivaId = novoMes.listas[0].id;
-  atualizarSelectMeses();
-  atualizarSelectListas();
-  carregarListaNaUI();
-  salvarEstado();
-});
-
-btnNovaListaMes.addEventListener('click', () => {
-  const mes = getMesAtivo();
-  if (!mes) return;
-  const nome = prompt('Nome da nova lista para este mês:', 'Nova lista');
-  if (!nome || !nome.trim()) return;
-
-  const id = 'lista-' + Date.now();
-  const novaLista = {
-    id,
-    nome: nome.trim(),
-    itens: [],
-    proximoId: 1,
-    usarOrcamento: false,
-    valorOrcamento: ''
-  };
-  mes.listas.push(novaLista);
-  listaAtivaId = id;
-  atualizarSelectListas();
-  carregarListaNaUI();
-  salvarEstado();
-});
-
-selectMes.addEventListener('change', () => {
-  mesAtivoId = selectMes.value;
-  const mes = getMesAtivo();
-  if (mes && mes.listas.length > 0) {
-    listaAtivaId = mes.listas[0].id;
-  } else {
-    listaAtivaId = null;
-  }
-  atualizarSelectListas();
-  carregarListaNaUI();
-  salvarEstado();
-});
-
-selectLista.addEventListener('change', () => {
-  listaAtivaId = selectLista.value;
-  carregarListaNaUI();
-  salvarEstado();
-});
-
-// ----- BACKUP -----
-function exportarBackup() {
-  salvarEstado();
-  const raw = localStorage.getItem(STORAGE_KEY) ||
-    JSON.stringify({ meses, mesAtivoId, listaAtivaId, carteiras });
-  const blob = new Blob([raw], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const hoje = new Date().toISOString().slice(0, 10);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `compras-backup-${hoje}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function importarBackup(arquivo) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data || !Array.isArray(data.meses)) {
-        alert('Arquivo de backup inválido.');
-        return;
-      }
-      meses = data.meses;
-      mesAtivoId = data.mesAtivoId || (meses[0] && meses[0].id);
-      const mes = getMesAtivo();
-      if (mes && mes.listas.length > 0) {
-        listaAtivaId = data.listaAtivaId || mes.listas[0].id;
-      } else {
-        listaAtivaId = null;
-      }
-
-      if (Array.isArray(data.carteiras) && data.carteiras.length > 0) {
-        carteiras = data.carteiras;
-      } else {
-        carteiras = inicializarCarteirasPadrao();
-      }
-
-      salvarEstado();
-      atualizarSelectMeses();
-      atualizarSelectListas();
-      atualizarSelectCarteiras();
-      atualizarResumoCarteirasChips();
-      carregarListaNaUI();
-      alert('Backup importado com sucesso!');
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao ler o arquivo de backup.');
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+      itemEditando = null;
     }
-  };
-  reader.readAsText(arquivo, 'utf-8');
+  });
+
+  btnSalvar.addEventListener('click', () => {
+    if (!itemEditando) return;
+    const prod = document.getElementById('editProduto').value.trim();
+    const cat = document.getElementById('editCategoria').value.trim();
+    const q = parseFloat(String(document.getElementById('editQuantidade').value).replace(',', '.'));
+    const u = document.getElementById('editUnidade').value;
+    const p = parseFloat(String(document.getElementById('editPreco').value).replace(',', '.'));
+    const carteiraId = document.getElementById('editCarteira').value || null;
+
+    if (!prod || isNaN(q) || q <= 0 || isNaN(p) || p <= 0) {
+      alert('Preencha os campos corretamente.');
+      return;
+    }
+
+    let total = u === 'g' ? (q / 1000) * p : q * p;
+
+    itemEditando.produto = prod;
+    itemEditando.categoria = cat;
+    itemEditando.quantidade = q;
+    itemEditando.unidade = u;
+    itemEditando.preco = p;
+    itemEditando.totalItem = total;
+    itemEditando.carteiraId = carteiraId;
+
+    salvarEstado();
+    atualizarTelaComprando();
+    atualizarTelaResumo();
+    modal.classList.add('hidden');
+    itemEditando = null;
+  });
 }
 
-btnExportarBackup.addEventListener('click', () => {
-  exportarBackup();
-});
+// Abrir modal edição a partir da tabela
+function abrirEdicaoItem(idItem) {
+  const lista = getListaAtiva();
+  if (!lista) return;
+  const item = lista.itens.find(i => i.id === idItem);
+  if (!item) return;
+  itemEditando = item;
 
-btnImportarBackup.addEventListener('click', () => {
-  inputImportarBackup.click();
-});
+  document.getElementById('editProduto').value = item.produto;
+  document.getElementById('editCategoria').value = item.categoria || '';
+  document.getElementById('editQuantidade').value = item.quantidade;
+  document.getElementById('editUnidade').value = item.unidade;
+  document.getElementById('editPreco').value = item.preco;
+  document.getElementById('editCarteira').value = item.carteiraId || '';
 
-inputImportarBackup.addEventListener('change', () => {
-  const arquivo = inputImportarBackup.files[0];
-  if (!arquivo) return;
-  importarBackup(arquivo);
-  inputImportarBackup.value = '';
-});
+  document.getElementById('modalEdicao').classList.remove('hidden');
+}
 
-// ----- INICIALIZAÇÃO -----
-inicializarListaProdutos();
-carregarEstado();
-atualizarSelectMeses();
-atualizarSelectListas();
-atualizarSelectCarteiras();
-atualizarResumoCarteirasChips();
-carregarListaNaUI();
+// ====== TELA RESUMO (TAB 3) ======
+function atualizarTelaResumo() {
+  atualizarTabelaResumo();
+  atualizarGraficosResumo();
+}
+
+function atualizarTabelaResumo() {
+  const lista = getListaAtiva();
+  const tbody = document.getElementById('tabelaItensResumoBody');
+  const totalSpan = document.getElementById('totalListaResumo');
+  const qtdSpan = document.getElementById('qtdItensResumo');
+  const ticketSpan = document.getElementById('ticketMedioResumo');
+  const maiorSpan = document.getElementById('maiorItemResumo');
+  const maiorNomeSpan = document.getElementById('maiorItemNomeResumo');
+
+  tbody.innerHTML = '';
+
+  if (!lista) {
+    totalSpan.textContent = 'R$ 0,00';
+    qtdSpan.textContent = '0';
+    ticketSpan.textContent = 'R$ 0,00';
+    maiorSpan.textContent = 'R$ 0,00';
+    maiorNomeSpan.textContent = '–';
+    return;
+  }
+
+  const itens = lista.itens;
+  itens.forEach((item, index) => {
+    const tr = document.createElement('tr');
+
+    const tdSeq = document.createElement('td');
+    tdSeq.textContent = index + 1;
+
+    const tdProd = document.createElement('td');
+    tdProd.textContent = item.produto;
+
+    const tdCat = document.createElement('td');
+    tdCat.textContent = item.categoria || '';
+
+    const tdCart = document.createElement('td');
+    tdCart.textContent = item.carteiraId ? nomeCarteiraPorId(item.carteiraId) : 'Sem carteira';
+
+    const tdQtd = document.createElement('td');
+    tdQtd.textContent = formatarQuantidade(item.quantidade, item.unidade);
+
+    const tdVlUn = document.createElement('td');
+    tdVlUn.textContent = formatarMoeda(item.preco);
+
+    const tdVlTot = document.createElement('td');
+    tdVlTot.textContent = formatarMoeda(item.totalItem);
+
+    const tdAcoes = document.createElement('td');
+    tdAcoes.classList.add('actions');
+
+    const btnEditar = document.createElement('button');
+    btnEditar.textContent = 'Editar';
+    btnEditar.className = 'btn secondary small';
+    btnEditar.addEventListener('click', () => abrirEdicaoItem(item.id));
+
+    const btnExcluir = document.createElement('button');
+    btnExcluir.textContent = 'Excluir';
+    btnExcluir.className = 'btn secondary small';
+    btnExcluir.style.marginLeft = '4px';
+    btnExcluir.addEventListener('click', () => {
+      if (!confirm('Remover este item?')) return;
+      lista.itens = lista.itens.filter(i => i.id !== item.id);
+      salvarEstado();
+      atualizarTelaComprando();
+      atualizarTelaResumo();
+    });
+
+    tdAcoes.appendChild(btnEditar);
+    tdAcoes.appendChild(btnExcluir);
+
+    tr.appendChild(tdSeq);
+    tr.appendChild(tdProd);
+    tr.appendChild(tdCat);
+    tr.appendChild(tdCart);
+    tr.appendChild(tdQtd);
+    tr.appendChild(tdVlUn);
+    tr.appendChild(tdVlTot);
+    tr.appendChild(tdAcoes);
+
+    tbody.appendChild(tr);
+  });
+
+  const total = itens.reduce((s, i) => s + i.totalItem, 0);
+  const qtd = itens.length;
+  const ticket = qtd > 0 ? total / qtd : 0;
+
+  totalSpan.textContent = formatarMoeda(total);
+  qtdSpan.textContent = String(qtd);
+  ticketSpan.textContent = formatarMoeda(ticket);
+
+  if (qtd > 0) {
+    const maior = itens.reduce((acc, i) => i.totalItem > acc.totalItem ? i : acc, itens[0]);
+    maiorSpan.textContent = formatarMoeda(maior.totalItem);
+    maiorNomeSpan.textContent = maior.produto;
+  } else {
+    maiorSpan.textContent = 'R$ 0,00';
+    maiorNomeSpan.textContent = '–';
+  }
+}
+
+function atualizarGraficosResumo() {
+  const lista = getListaAtiva();
+  const itens = lista ? lista.itens : [];
+
+  // --- Gráficos por categoria (lista selecionada) ---
+  const gastosPorCategoria = {};
+  const qtdPorCategoria = {};
+
+  itens.forEach(i => {
+    const cat = i.categoria && i.categoria.trim() ? i.categoria.trim() : 'Sem categoria';
+    gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + i.totalItem;
+    qtdPorCategoria[cat] = (qtdPorCategoria[cat] || 0) + 1;
+  });
+
+  const cats = Object.keys(gastosPorCategoria);
+  const valores = cats.map(c => gastosPorCategoria[c]);
+  const quantidades = cats.map(c => qtdPorCategoria[c] || 0);
+
+  const ctxQtd = document.getElementById('chartQtdCategoria').getContext('2d');
+  const ctxVal = document.getElementById('chartValorCategoria').getContext('2d');
+
+  if (chartQtdCategoria) chartQtdCategoria.destroy();
+  if (chartValorCategoria) chartValorCategoria.destroy();
+
+  chartQtdCategoria = new Chart(ctxQtd, {
+    type: 'bar',
+    data: {
+      labels: cats,
+      datasets: [{ data: quantidades }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 } } },
+        y: { ticks: { stepSize: 1 } }
+      }
+    }
+  });
+
+  chartValorCategoria = new Chart(ctxVal, {
+    type: 'bar',
+    data: {
+      labels: cats,
+      datasets: [{ data: valores }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => formatarMoeda(ctx.raw || 0)
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 } } },
+        y: {
+          ticks: {
+            callback: v => formatarMoeda(v)
+          }
+        }
+      }
+    }
+  });
+
+  // --- Gráfico totais por mês (todas as listas) ---
+  const labelsMes = [];
+  const valoresMes = [];
+
+  const totaisCarteiras = {};
+
+  meses.forEach(m => {
+    let totalMes = 0;
+    (m.listas || []).forEach(l => {
+      (l.itens || []).forEach(i => {
+        totalMes += i.totalItem;
+        const cId = i.carteiraId || 'sem';
+        totaisCarteiras[cId] = (totaisCarteiras[cId] || 0) + i.totalItem;
+      });
+    });
+    labelsMes.push(m.nome || labelMes(m.id));
+    valoresMes.push(totalMes);
+  });
+
+  const ctxMes = document.getElementById('chartTotaisMeses').getContext('2d');
+  if (chartTotaisMeses) chartTotaisMeses.destroy();
+  chartTotaisMeses = new Chart(ctxMes, {
+    type: 'bar',
+    data: {
+      labels: labelsMes,
+      datasets: [{ data: valoresMes }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => formatarMoeda(ctx.raw || 0)
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 } } },
+        y: {
+          ticks: {
+            callback: v => formatarMoeda(v)
+          }
+        }
+      }
+    }
+  });
+
+  // --- Gráfico por carteira (todos os meses) ---
+  const labelsCarteira = [];
+  const valoresCarteira = [];
+
+  Object.keys(totaisCarteiras).forEach(id => {
+    labelsCarteira.push(id === 'sem' ? 'Sem carteira' : nomeCarteiraPorId(id));
+    valoresCarteira.push(totaisCarteiras[id]);
+  });
+
+  const ctxCart = document.getElementById('chartCarteiras').getContext('2d');
+  if (chartCarteiras) chartCarteiras.destroy();
+  chartCarteiras = new Chart(ctxCart, {
+    type: 'bar',
+    data: {
+      labels: labelsCarteira,
+      datasets: [{ data: valoresCarteira }]
+    },
+    options: {
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => formatarMoeda(ctx.raw || 0)
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 } } },
+        y: {
+          ticks: {
+            callback: v => formatarMoeda(v)
+          }
+        }
+      }
+    }
+  });
+}
