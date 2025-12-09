@@ -4,345 +4,272 @@
   <meta charset="UTF-8">
   <title>Controle de Compras</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css">
+
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="stylesheet" href="style.css">
+
+  <!-- App -->
+  <script defer src="app.js"></script>
 </head>
 <body>
-  <div class="app">
+  <div class="app-container">
     <header class="app-header">
       <div>
         <h1>Controle de Compras</h1>
-        <p>Meses ➝ Listas ➝ Itens, com carteiras e gráficos.</p>
-      </div>
-      <div class="context-info">
-        <span id="lblMesAtualHeader" class="badge"></span>
-        <span id="lblListaAtualHeader" class="badge badge-secondary"></span>
+        <p>Cadastre meses, listas, carteiras, registre as compras e veja o resumo com gráficos.</p>
       </div>
     </header>
 
-    <!-- Navegação de abas -->
+    <!-- Abas -->
     <nav class="tabs">
-      <button class="tab-button active" data-tab="cadastro" id="btnTabCadastro">1. Cadastro</button>
-      <button class="tab-button" data-tab="comprando" id="btnTabComprando">2. Comprando</button>
-      <button class="tab-button" data-tab="resumo" id="btnTabResumo">3. Resumo das Compras</button>
+      <button class="tab-button active" data-tab-target="#tabCadastro">1. Cadastro</button>
+      <button class="tab-button" data-tab-target="#tabComprando">2. Comprando</button>
+      <button class="tab-button" data-tab-target="#tabResumo">3. Resumo das Compras</button>
     </nav>
 
-    <!-- ABA 1 - CADASTRO -->
-    <section class="tab-content active" id="tab-cadastro">
-      <!-- Mês e listas -->
-      <div class="card">
-        <h2 class="section-title">Meses e Listas</h2>
-        <div class="form-row">
-          <div class="field">
-            <label for="selectMesCadastro">Mês de referência</label>
-            <select id="selectMesCadastro"></select>
+    <main>
+      <!-- ABA 1: CADASTRO -->
+      <section id="tabCadastro" class="tab-panel active">
+        <!-- Meses -->
+        <div class="card">
+          <h2>Meses de referência</h2>
+          <div class="form-row">
+            <label for="cadMesSelect">Mês atual:</label>
+            <select id="cadMesSelect"></select>
+            <button id="cadNovoMesBtn" class="btn-primary">+ Novo mês</button>
           </div>
-          <button id="btnNovoMes" class="btn-outline">➕ Novo mês</button>
+          <p id="cadMesResumo" class="text-muted"></p>
         </div>
 
-        <div class="form-row">
-          <div class="field">
-            <label for="selectListaCadastro">Listas do mês</label>
-            <select id="selectListaCadastro"></select>
+        <!-- Listas -->
+        <div class="card">
+          <h2>Listas de compras do mês</h2>
+          <div class="form-row">
+            <label for="cadListaSelect">Lista ativa:</label>
+            <select id="cadListaSelect"></select>
+            <button id="cadNovaListaBtn" class="btn-secondary">+ Nova lista</button>
           </div>
-          <button id="btnNovaListaMes" class="btn-outline">
-            ➕ Nova lista no mês
-          </button>
+          <ul id="cadListasResumo" class="tag-list"></ul>
         </div>
 
-        <small class="hint">
-          Exemplo: Mês 11/2025 → listas "Compra grande", "Reposição", "Churrasco".
-        </small>
-      </div>
-
-      <!-- Carteiras -->
-      <div class="card">
-        <h2 class="section-title">Carteiras / Formas de pagamento</h2>
-        <div class="form-row">
-          <div class="field">
-            <label for="novaCarteiraNome">Nome da carteira</label>
-            <input
-              type="text"
-              id="novaCarteiraNome"
-              placeholder="Ex: Pix, Crédito Nubank, Débito Caixa, VR, Dinheiro"
-            >
+        <!-- Carteiras -->
+        <div class="card">
+          <h2>Carteiras / Formas de pagamento</h2>
+          <div class="form-row">
+            <input id="cadCarteiraNome" type="text" placeholder="Ex: Pix, Crédito Nubank, VR, Dinheiro..." />
+            <button id="cadAdicionarCarteiraBtn" class="btn-secondary">Adicionar carteira</button>
           </div>
-          <button id="btnAdicionarCarteira" class="btn-outline">
-            ➕ Adicionar carteira
-          </button>
+          <div id="cadCarteirasResumo" class="tag-list"></div>
         </div>
+      </section>
 
-        <p class="hint">
-          As carteiras aparecem na aba <strong>Comprando</strong> para cada item.
-        </p>
-
-        <div id="listaCarteirasResumo" class="chips"></div>
-      </div>
-    </section>
-
-    <!-- ABA 2 - COMPRANDO -->
-    <section class="tab-content" id="tab-comprando">
-      <!-- Contexto rápido -->
-      <div class="card">
-        <h2 class="section-title">Contexto da compra</h2>
-        <p class="hint">
-          Se precisar trocar o mês ou a lista, volte para a aba <strong>Cadastro</strong>.
-        </p>
-        <div class="context-summary">
-          <div>
-            <span class="label">Mês selecionado:</span>
-            <span id="lblMesAtualCompra" class="badge"></span>
-          </div>
-          <div>
-            <span class="label">Lista selecionada:</span>
-            <span id="lblListaAtualCompra" class="badge badge-secondary"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Orçamento da lista -->
-      <div class="card">
-        <h2 class="section-title">Orçamento da Lista Atual</h2>
-        <div class="form-row">
-          <label class="checkbox-inline">
-            <input type="checkbox" id="chkUsarOrcamento">
-            Ativar controle de orçamento
-          </label>
-          <div class="field">
-            <label for="txtValorOrcamento">Valor disponível (R$)</label>
-            <input type="number" id="txtValorOrcamento" step="0.01" min="0" disabled>
-          </div>
-        </div>
-        <small class="hint">
-          Cada lista pode ter seu próprio orçamento.
-        </small>
-      </div>
-
-      <!-- Inclusão de itens -->
-      <div class="card">
-        <h2 class="section-title">Incluir Itens na Lista</h2>
-        <div class="grid-form">
-          <div class="field field-produto">
-            <label for="txtProduto">Produto</label>
-            <input type="text" id="txtProduto" list="listaProdutos" placeholder="Ex: Arroz, Carne, Sabão em pó">
-            <datalist id="listaProdutos"></datalist>
-          </div>
-
-          <div class="field field-categoria">
-            <label for="txtCategoria">Categoria</label>
-            <input list="listaCategorias" id="txtCategoria" placeholder="Ex: Hortifruti, Carne, Limpeza">
-            <datalist id="listaCategorias">
-              <option value="Hortifruti"></option>
-              <option value="Carnes"></option>
-              <option value="Padaria"></option>
-              <option value="Bebidas"></option>
-              <option value="Limpeza"></option>
-              <option value="Higiene"></option>
-              <option value="Mercearia"></option>
-              <option value="Frios"></option>
-            </datalist>
-          </div>
-
-          <div class="field field-carteira">
-            <label for="selectCarteiraItem">Carteira</label>
-            <select id="selectCarteiraItem"></select>
-          </div>
-
-          <div class="field field-qtde">
-            <label for="txtQuantidade">Quantidade</label>
-            <input type="number" id="txtQuantidade" step="0.01" min="0">
-          </div>
-
-          <div class="field field-unidade">
-            <label for="selectUnidade">Unidade</label>
-            <select id="selectUnidade">
-              <option value="un">Unidade</option>
-              <option value="kg">Kg</option>
-              <option value="g">Gramas</option>
-              <option value="L">Litros</option>
-              <option value="cx">Caixa</option>
-            </select>
-          </div>
-
-          <div class="field field-preco">
-            <label for="txtPreco">Preço un/kg/L (R$)</label>
-            <input type="number" id="txtPreco" step="0.01" min="0">
-          </div>
-
-          <div class="field field-btn">
-            <label>&nbsp;</label>
-            <button id="btnAdicionarItem" class="btn-primary">
-              ➕ Adicionar item
-            </button>
-          </div>
-        </div>
-
-        <div class="budget-inline" id="boxResumoOrcamentoComprando">
-          <span id="lblResumoOrcamentoComprando"></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ABA 3 - RESUMO DAS COMPRAS -->
-    <section class="tab-content" id="tab-resumo">
-      <!-- Contexto + ações da lista -->
-      <div class="card">
-        <div class="head-row">
-          <div>
-            <h2 class="section-title">Resumo da Lista Atual</h2>
-            <div class="context-summary">
-              <div>
-                <span class="label">Mês:</span>
-                <span id="lblMesAtualResumo" class="badge"></span>
-              </div>
-              <div>
-                <span class="label">Lista:</span>
-                <span id="lblListaAtualResumo" class="badge badge-secondary"></span>
-              </div>
+      <!-- ABA 2: COMPRANDO -->
+      <section id="tabComprando" class="tab-panel">
+        <!-- Contexto -->
+        <div class="card">
+          <h2>Contexto da compra</h2>
+          <div class="form-row form-row-wrap">
+            <div class="field-inline">
+              <label for="compMesSelect">Mês:</label>
+              <select id="compMesSelect"></select>
+            </div>
+            <div class="field-inline">
+              <label for="compListaSelect">Lista:</label>
+              <select id="compListaSelect"></select>
             </div>
           </div>
-          <button id="btnLimparLista" class="btn-outline btn-danger-soft">
-            🧹 Limpar lista atual
-          </button>
-        </div>
-      </div>
 
-      <!-- Tabela de itens -->
-      <div class="card">
-        <h3 class="section-subtitle">Itens comprados</h3>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Produto</th>
-                <th>Categoria</th>
-                <th>Carteira</th>
-                <th>Qtd</th>
-                <th class="right">Preço un/kg/L</th>
-                <th class="right">Total item</th>
-                <th class="right">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyItens"></tbody>
-          </table>
-        </div>
-        <div class="table-footer">
-          <span id="lblInfoItens">Nenhum item adicionado ainda.</span>
-        </div>
-      </div>
-
-      <!-- Resumo numérico + orçamento -->
-      <div class="card">
-        <h3 class="section-subtitle">Indicadores da lista</h3>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <span class="summary-label">Total da lista</span>
-            <span class="summary-value" id="lblTotalLista">R$ 0,00</span>
-            <span class="summary-extra" id="lblQtdItens">0 itens</span>
-          </div>
-          <div class="summary-card">
-            <span class="summary-label">Ticket médio por item</span>
-            <span class="summary-value" id="lblTicketMedio">R$ 0,00</span>
-            <span class="summary-extra">Total ÷ nº de itens</span>
-          </div>
-          <div class="summary-card">
-            <span class="summary-label">Maior gasto em um item</span>
-            <span class="summary-value" id="lblMaiorItemValor">R$ 0,00</span>
-            <span class="summary-extra" id="lblMaiorItemNome">–</span>
-          </div>
-          <div class="summary-card">
-            <span class="summary-label">Categorias distintas</span>
-            <span class="summary-value" id="lblQtdCategorias">0</span>
-            <span class="summary-extra">Perfil de consumo</span>
+          <div class="budget-row">
+            <label class="inline">
+              <input type="checkbox" id="compUsarOrcamento">
+              Controlar orçamento desta lista
+            </label>
+            <input
+              type="number"
+              id="compValorOrcamento"
+              placeholder="Valor disponível (ex: 300,00)"
+              step="0.01"
+              min="0"
+            >
+            <span id="compOrcamentoStatus" class="text-muted"></span>
           </div>
         </div>
 
-        <div id="budgetContainer" class="budget-bar-container">
-          <div class="budget-bar-track">
-            <div id="budgetBar" class="budget-bar-fill"></div>
-          </div>
-          <p id="budgetStatus" class="budget-status"></p>
-        </div>
-      </div>
+        <!-- Inclusão de itens -->
+        <div class="card">
+          <h2>Incluir produtos na lista selecionada</h2>
+          <div class="grid-6">
+            <div class="field">
+              <label for="produto">Produto</label>
+              <input type="text" id="produto" list="listaProdutos" placeholder="Ex: Arroz, Carne, Sabão em pó">
+              <datalist id="listaProdutos"></datalist>
+            </div>
 
-      <!-- Gráficos da lista -->
-      <div class="card">
-        <h3 class="section-subtitle">Gráficos da lista atual</h3>
-        <div class="charts-grid">
-          <div class="chart-card">
-            <h4>Gastos por categoria</h4>
-            <p class="hint">Participação de cada categoria nessa lista.</p>
-            <canvas id="chartCategoriasLista" height="220"></canvas>
-          </div>
-          <div class="chart-card">
-            <h4>Top produtos</h4>
-            <p class="hint">Até 5 produtos que mais pesam na lista.</p>
-            <canvas id="chartTopProdutos" height="220"></canvas>
-          </div>
-        </div>
-      </div>
+            <div class="field">
+              <label for="categoria">Categoria</label>
+              <input list="listaCategorias" id="categoria" placeholder="Ex: Hortifruti, Carne, Limpeza">
+              <datalist id="listaCategorias">
+                <option value="Hortifruti"></option>
+                <option value="Carnes"></option>
+                <option value="Padaria"></option>
+                <option value="Bebidas"></option>
+                <option value="Limpeza"></option>
+                <option value="Higiene"></option>
+                <option value="Mercearia"></option>
+                <option value="Frios"></option>
+              </datalist>
+            </div>
 
-      <!-- Visão geral por mês e por carteira -->
-      <div class="card">
-        <h3 class="section-subtitle">Visão geral (todos os meses)</h3>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <span class="summary-label">Total geral</span>
-            <span class="summary-value" id="lblTotalGeralMeses">R$ 0,00</span>
-            <span class="summary-extra">Soma de todas as listas</span>
+            <div class="field">
+              <label for="carteiraItem">Carteira</label>
+              <select id="carteiraItem"></select>
+            </div>
+
+            <div class="field">
+              <label for="quantidade">Quantidade</label>
+              <input type="number" id="quantidade" step="0.01" min="0">
+            </div>
+
+            <div class="field">
+              <label for="unidade">Unidade</label>
+              <select id="unidade">
+                <option value="un">Unidade</option>
+                <option value="kg">Kg</option>
+                <option value="g">Gramas</option>
+                <option value="L">Litros</option>
+                <option value="cx">Caixa</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="preco">Preço un/kg/L (R$)</label>
+              <input type="number" id="preco" step="0.01" min="0">
+            </div>
           </div>
-          <div class="summary-card">
-            <span class="summary-label">Meses com dados</span>
-            <span class="summary-value" id="lblQtdMeses">0</span>
-            <span class="summary-extra">Com pelo menos uma lista</span>
+
+          <div class="actions-row">
+            <button id="btnAdicionarItem" class="btn-primary">
+              Adicionar item à lista
+            </button>
+            <button id="btnLimparLista" class="btn-danger">
+              Limpar itens da lista atual
+            </button>
           </div>
-          <div class="summary-card">
-            <span class="summary-label">Mês de maior gasto</span>
-            <span class="summary-value" id="lblMesTopNome">–</span>
-            <span class="summary-extra" id="lblMesTopValor">R$ 0,00</span>
+
+          <p class="text-muted">
+            Dica: escolha o mês, a lista e a carteira antes de incluir os itens.
+          </p>
+        </div>
+      </section>
+
+      <!-- ABA 3: RESUMO -->
+      <section id="tabResumo" class="tab-panel">
+        <div class="card">
+          <h2>Resumo da lista atual</h2>
+          <p class="text-muted">
+            Mês: <strong id="resumoNomeMes">–</strong> • Lista: <strong id="resumoNomeLista">–</strong>
+          </p>
+
+          <div class="summary-grid">
+            <div class="summary-card">
+              <span class="summary-label">Total da lista</span>
+              <span class="summary-value" id="resumoTotalLista">R$ 0,00</span>
+              <span class="summary-sub" id="resumoQtdItens">0 itens</span>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-label">Ticket médio por item</span>
+              <span class="summary-value" id="resumoTicketMedio">R$ 0,00</span>
+              <span class="summary-sub">Total ÷ quantidade de itens</span>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-label">Maior item</span>
+              <span class="summary-value" id="resumoMaiorItemValor">R$ 0,00</span>
+              <span class="summary-sub" id="resumoMaiorItemNome">–</span>
+            </div>
+
+            <div class="summary-card">
+              <span class="summary-label">Categorias distintas</span>
+              <span class="summary-value" id="resumoQtdCategorias">0</span>
+              <span class="summary-sub">Qtd. de categorias na lista</span>
+            </div>
           </div>
-          <div class="summary-card">
-            <span class="summary-label">Total de listas</span>
-            <span class="summary-value" id="lblQtdListasTotais">0</span>
-            <span class="summary-extra">Somando todos os meses</span>
+
+          <div class="budget-info" id="resumoBudgetBox" style="display:none;">
+            <span id="resumoBudgetTexto"></span>
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Produto</th>
+                  <th>Categoria</th>
+                  <th>Carteira</th>
+                  <th>Qtd</th>
+                  <th>Vlr un</th>
+                  <th>Vlr total</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="resumoTabelaBody"></tbody>
+            </table>
           </div>
         </div>
 
-        <div class="charts-grid charts-grid-full">
-          <div class="chart-card">
-            <h4>Totais por mês</h4>
-            <canvas id="chartTotaisMeses" height="240"></canvas>
-          </div>
-          <div class="chart-card">
-            <h4>Totais por carteira</h4>
-            <canvas id="chartCarteiras" height="240"></canvas>
+        <div class="card">
+          <h2>Gráficos por categoria</h2>
+          <div class="charts-grid">
+            <div>
+              <h3>Quantidade de produtos x categoria</h3>
+              <canvas id="chartQtdCategoria" height="220"></canvas>
+            </div>
+            <div>
+              <h3>Valor total x categoria</h3>
+              <canvas id="chartValorCategoria" height="220"></canvas>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+
+        <div class="card">
+          <h2>Backup dos dados</h2>
+          <p class="text-muted">
+            Exporte um arquivo .json com meses, listas, carteiras e itens ou importe um backup antigo.
+          </p>
+          <div class="form-row">
+            <button id="btnExportarBackup" class="btn-secondary">Exportar backup</button>
+            <button id="btnImportarBackup" class="btn-secondary">Importar backup</button>
+            <input type="file" id="inputImportarBackup" accept=".json,application/json" style="display:none;">
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <!-- Modal de edição -->
   <div id="modalEdicao" class="modal-backdrop">
     <div class="modal-dialog">
-      <h3 class="modal-title">Editar item</h3>
+      <h3>Editar item</h3>
 
-      <label class="edit-label">Produto</label>
-      <input id="editProduto" class="edit-input">
+      <label class="modal-label">Produto</label>
+      <input id="editProduto" class="modal-input">
 
-      <label class="edit-label">Categoria</label>
-      <input id="editCategoria" class="edit-input">
+      <label class="modal-label">Categoria</label>
+      <input id="editCategoria" class="modal-input">
 
-      <label class="edit-label">Carteira</label>
-      <select id="editCarteira" class="edit-input"></select>
+      <label class="modal-label">Carteira</label>
+      <select id="editCarteira" class="modal-input"></select>
 
-      <label class="edit-label">Quantidade</label>
-      <input id="editQuantidade" type="number" step="0.01" min="0" class="edit-input">
+      <label class="modal-label">Quantidade</label>
+      <input id="editQuantidade" type="number" step="0.01" min="0" class="modal-input">
 
-      <label class="edit-label">Unidade</label>
-      <select id="editUnidade" class="edit-input">
+      <label class="modal-label">Unidade</label>
+      <select id="editUnidade" class="modal-input">
         <option value="un">Unidade</option>
         <option value="kg">Kg</option>
         <option value="g">Gramas</option>
@@ -350,16 +277,14 @@
         <option value="cx">Caixa</option>
       </select>
 
-      <label class="edit-label">Preço un/kg/L (R$)</label>
-      <input id="editPreco" type="number" step="0.01" min="0" class="edit-input">
+      <label class="modal-label">Preço un/kg/L (R$)</label>
+      <input id="editPreco" type="number" step="0.01" min="0" class="modal-input">
 
       <div class="modal-actions">
-        <button id="btnCancelarEdicao" class="btn-outline">Cancelar</button>
+        <button id="btnCancelarEdicao" class="btn-secondary">Cancelar</button>
         <button id="btnSalvarEdicao" class="btn-primary">Salvar</button>
       </div>
     </div>
   </div>
-
-  <script src="app.js"></script>
 </body>
 </html>
